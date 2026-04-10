@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { AnalyticsDashboard } from "@/features/AnalyticsDashboard"
+import { MoneyFlow } from "@/features/MoneyFlow/MoneyFlow"
 import { BarChart2, Activity, Lightbulb, History, Moon, Sun, RefreshCw } from "lucide-react"
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -299,12 +300,9 @@ export default function App() {
           </> 
         )}
 
-        {activeTab === "moneyflow" && (
-          <div className="flex items-center justify-center py-20 text-slate-600 text-sm">
-            資金追蹤（開發中）
-          </div>
+{activeTab === "moneyflow" && (
+          <MoneyFlow raceDetail={raceDetail ?? null} />
         )}
-
         {activeTab === "recommendations" && (
           <div className="space-y-4">
             {raceDetail?.aiSummary ? (
