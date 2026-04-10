@@ -144,6 +144,140 @@ function getDynamicWeights(distance: number, raceClass: string) {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ODDS STRUCTURE ANALYSIS — based on Chinese racing analytics methodology
+// Classifies each race into 馬膽局 / 分立局 / 混亂局 using favorite odds tiers
+// ══════════════════════════════════════════════════════════════════════════════
+
+interface OddsStructureResult {
+  raceType: "馬膽局" | "分立局" | "混亂局" | "未能判斷"
+  raceTypeCode: "BANKER" | "SPLIT" | "CHAOTIC" | "UNKNOWN"
+  od1: number          // favorite odds
+  od2: number          // 2nd favorite odds
+  od3: number          // 3rd favorite odds
+  od4: number          // 4th favorite odds
+  hotCount: number     // horses with winOdds ≤ 10
+  coldSignal: boolean  // true = likely cold race result
+  qinFocus: "od1_group" | "od2_od3_group" | "spread" | "unknown"
+  topBanker: string | null   // runnerNumber of banker (if 馬膽局)
+  coldCandidates: (string | number)[]  // runner numbers worth watching for cold
+  description: string
+  tip: string
+}
+
+function analyzeOddsStructure(
+  predictions: any[],
+  isPreRace: boolean
+): OddsStructureResult {
+  const NA: OddsStructureResult = {
+    raceType: "未能判斷", raceTypeCode: "UNKNOWN",
+    od1: 0, od2: 0, od3: 0, od4: 0,
+    hotCount: 0, coldSignal: false,
+    qinFocus: "unknown", topBanker: null, coldCandidates: [],
+    description: isPreRace ? "賠率未開盤，暫無法判斷賽局結構。" : "賽駒不足，無法判斷賽局結構。",
+    tip: "等待賠率開盤後分析。",
+  }
+
+  const withOdds = predictions
+    .filter(
+      (p) =>
+        p.winOdds !== "—" &&
+        !isNaN(parseFloat(String(p.winOdds))) &&
+        !String(p.runnerNumber).startsWith("R")
+    )
+    .sort((a, b) => parseFloat(String(a.winOdds)) - parseFloat(String(b.winOdds)))
+
+  if (withOdds.length < 4) return NA
+
+  const od1 = parseFloat(String(withOdds[0].winOdds))
+  const od2 = parseFloat(String(withOdds[1].winOdds))
+  const od3 = parseFloat(String(withOdds[2].winOdds))
+  const od4 = withOdds[3] ? parseFloat(String(withOdds[3].winOdds)) : 99
+
+  const hotCount = withOdds.filter((p) => parseFloat(String(p.winOdds)) <= 10).length
+
+  // Candidate cold horses = those ranked 3rd–6th by odds (od3 ~ od6 range)
+  const coldCandidates = withOdds
+    .slice(2, 6)
+    .filter((p) => parseFloat(String(p.winOdds)) >= 6)
+    .map((p) => p.runnerNumber)
+
+  const topBanker = withOdds[0].runnerNumber
+
+  // ── Rule 1: 馬膽局 ── od1 ≤ 3 ───────────────────────────────────────────
+  if (od1 <= 3) {
+    let tip = `強馬膽 #${topBanker}（${od1}）存在。連贏(Q)聚焦首選配搭次選。`
+    let qin: OddsStructureResult["qinFocus"] = "od1_group"
+
+    // Special: od1 < 3 AND od2 >= 4 → banker dominates, Q almost certainly includes od1
+    if (od2 >= 4) {
+      tip = `超強馬膽 #${topBanker}（${od1}）配搭次選（${od2}）。Q幾乎確定包含首選，宜以首選為膽連接3至4匹腳。`
+    }
+
+    return {
+      raceType: "馬膽局", raceTypeCode: "BANKER",
+      od1, od2, od3, od4, hotCount,
+      coldSignal: false,
+      qinFocus: qin,
+      topBanker: String(topBanker),
+      coldCandidates: [],
+      description: `馬膽局：超班馬膽存在（首選賠率 ${od1}），熱門集中，賽果偏向熱門主導。`,
+      tip,
+    }
+  }
+
+  // ── Rule 3: 混亂局 ── od1 ≈ 4（3.5 ~ 5.5）──────────────────────────────
+  if (od1 >= 3.5 && od1 <= 5.5) {
+    const subColdSignal = od2 >= 4 // both od1 & od2 high → even more chaotic
+    return {
+      raceType: "混亂局", raceTypeCode: "CHAOTIC",
+      od1, od2, od3, od4, hotCount,
+      coldSignal: true,
+      qinFocus: "od2_od3_group",
+      topBanker: null,
+      coldCandidates,
+      description: `混亂局：首選賠率約4（${od1}）${subColdSignal ? `，次選同樣偏高（${od2}）` : ""}。Q全在首選出現機率偏低，冷賽果信號強烈。`,
+      tip: `⚠️ 冷賽果高危場：認真比較次選（${od2}）至第四選（${od4}）中的冷馬，特別留意年輕質新馬、配件改變馬、轉馬房馬。`,
+    }
+  }
+
+  // ── Rule 2: 分立局 ── od1 > 5.5 OR (od2 ≥ 4 with stratification) ────────
+  if (od2 >= 4) {
+    const bothHigh = od1 >= 4 && od2 >= 4
+    const coldSignal = bothHigh
+    const qin: OddsStructureResult["qinFocus"] = bothHigh ? "spread" : "od1_group"
+    const desc = bothHigh
+      ? `分立局（混亂傾向）：首選（${od1}）與次選（${od2}）賠率差異不大，od1分層被od2瓦解，整體局面仍混亂，冷馬機率上升。`
+      : `分立局：熱門存在一定分層（首選 ${od1}，次選 ${od2}），Q有較高概率在首選組別中出現。`
+    const tip = bothHigh
+      ? `od1與od2均≥4，冷馬結果機率高。可考慮在od3（${od3}）附近尋找冷馬配搭。`
+      : `Q聚焦首選#${topBanker}配搭2至3匹次選，熱門競爭多，注碼宜分散。`
+    return {
+      raceType: "分立局", raceTypeCode: "SPLIT",
+      od1, od2, od3, od4, hotCount,
+      coldSignal,
+      qinFocus: qin,
+      topBanker: coldSignal ? null : String(topBanker),
+      coldCandidates: coldSignal ? coldCandidates : [],
+      description: desc,
+      tip,
+    }
+  }
+
+  // Fallback: od1 > 5, od2 < 4 — still a split but moderate
+  return {
+    raceType: "分立局", raceTypeCode: "SPLIT",
+    od1, od2, od3, od4, hotCount,
+    coldSignal: false,
+    qinFocus: "od1_group",
+    topBanker: String(topBanker),
+    coldCandidates: [],
+    description: `分立局：熱門競爭適中（首選 ${od1}，次選 ${od2}），熱門相爭數量 ${hotCount} 匹。`,
+    tip: `Q以首選#${topBanker}為主軸，配搭2至3匹次選，注意熱門較多時派彩偏低，子彈宜節省。`,
+  }
+}
+
 function json(statusCode: number, body: unknown) {
   return {
     statusCode,
@@ -673,6 +807,9 @@ export const handler: Handler = async (event) => {
         return a.runnerNumber - b.runnerNumber
       })
 
+            // ── Odds structure classification ──────────────────────────────────
+      const oddsStructure = analyzeOddsStructure(predictions, isPreRace)
+
       const validPredictions = predictions.filter((p: any) => !String(p.runnerNumber).startsWith("R"))
       const topPick = validPredictions.length > 0 ? validPredictions[0] : predictions[0]
       const hasDarkHorse = validPredictions.some((p: any) => p.investmentLabel === "DARKHORSE")
@@ -703,6 +840,7 @@ export const handler: Handler = async (event) => {
         topPick,
         predictions,
         pools: isPreRace ? null : poolsData,
+        oddsStructure,
         isPreRace,
         summary: summaryText,
         aiSummary: summaryText,
