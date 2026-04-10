@@ -1,6 +1,6 @@
 import type { Handler } from "@netlify/functions"
 import { HorseRacingAPI, HKJCClient } from "hkjc-api"
-import { horseOddsQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
+import { horseOddsQuery, horsePoolQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
 import { neon } from "@neondatabase/serverless"
 import axios from "axios"
 import * as cheerio from "cheerio"
@@ -225,7 +225,7 @@ export const handler: Handler = async (event) => {
           date: meeting.date,
           venueCode: meeting.venueCode,
           raceNo,
-          oddsTypes: ["WIN", "PLA", "QIN", "QPL"],
+          oddsTypes: ["WIN", "PLA"],
         })
 
         const pools = oddsResponse.raceMeetings[0]?.pmPools || []
@@ -243,26 +243,46 @@ export const handler: Handler = async (event) => {
             placeOddsMap[node.combString] = node.oddsValue
           })
         }
-
-        const qinPool = pools.find((p: any) => p.oddsType === "QIN")
-        if (qinPool?.oddsNodes) {
-          qinPool.oddsNodes.forEach((node: any) => {
-            const v = parseFloat(node.oddsValue)
-            if (!isNaN(v)) qinOddsMap[node.combString] = v
-          })
-        }
-
-        const qplPool = pools.find((p: any) => p.oddsType === "QPL")
-        poolsData = {
-          WIN: Number(winPool?.grossInv || winPool?.totalInv || 0),
-          PLA: Number(plaPool?.grossInv || plaPool?.totalInv || 0),
-          QIN: Number(qinPool?.grossInv || qinPool?.totalInv || 0),
-          QPL: Number(qplPool?.grossInv || qplPool?.totalInv || 0),
-          DBL: 0,
-        }
       } catch {
         // ignore
       }
+
+      // ── Fetch QIN odds (separate call using same horseOddsQuery) ──
+      try {
+        const qinOddsResponse: any = await hkjcClient.request(horseOddsQuery, {
+          date: meeting.date,
+          venueCode: meeting.venueCode,
+          raceNo,
+          oddsTypes: ["QIN", "QPL"],
+        })
+        const qinPools = qinOddsResponse.raceMeetings[0]?.pmPools || []
+        const qinPool  = qinPools.find((p: any) => p.oddsType === "QIN")
+        if (qinPool?.oddsNodes) {
+          qinPool.oddsNodes.forEach((node: any) => {
+            const v = parseFloat(node.oddsValue)
+            if (!isNaN(v) && v > 0) qinOddsMap[node.combString] = v
+          })
+        }
+      } catch { /* ignore */ }
+
+      // ── Fetch pool totals via horsePoolQuery (investment field) ──
+      try {
+        const poolResponse: any = await hkjcClient.request(horsePoolQuery, {
+          date: meeting.date,
+          venueCode: meeting.venueCode,
+          raceNo,
+          oddsTypes: ["WIN", "PLA", "QIN", "QPL"],
+        })
+        const poolInvs = poolResponse.raceMeetings[0]?.poolInvs || []
+        const findPool = (type: string) => poolInvs.find((p: any) => p.oddsType === type)
+        poolsData = {
+          WIN: Number(findPool("WIN")?.investment || 0),
+          PLA: Number(findPool("PLA")?.investment || 0),
+          QIN: Number(findPool("QIN")?.investment || 0),
+          QPL: Number(findPool("QPL")?.investment || 0),
+          DBL: Number(findPool("DBL")?.investment || 0),
+        }
+      } catch { /* ignore */ }
 
       // Fetch historical odds from Neon
       let historicalOddsMap: Record<string, number> = {}
@@ -491,7 +511,7 @@ export const handler: Handler = async (event) => {
           const current   = parseFloat(String(displayOdds))
           if (!isNaN(overnight) && !isNaN(current)) {
             const drop = (overnight - current) / overnight
-            if (drop >= 0.30)      moneyAlert = "large_bet"
+            if (drop >= 0.30)       moneyAlert = "large_bet"
             else if (drop <= -0.20) moneyAlert = "drifting"
             else                    moneyAlert = "steady"
           }
