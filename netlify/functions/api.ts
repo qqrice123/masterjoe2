@@ -455,8 +455,8 @@ export const handler: Handler = async (event) => {
               WHERE date = ${isoDate}
                 AND venue = ${venueCode.toUpperCase()}
                 AND race_no = ${raceNo}
-                AND minutes_to_post BETWEEN -20 AND -10
-              ORDER BY minutes_to_post DESC
+                AND mtp_bucket = 15
+              LIMIT 20
             `,
             sql`
               SELECT runner_number, odds
@@ -464,8 +464,8 @@ export const handler: Handler = async (event) => {
               WHERE date = ${isoDate}
                 AND venue = ${venueCode.toUpperCase()}
                 AND race_no = ${raceNo}
-                AND minutes_to_post BETWEEN -35 AND -25
-              ORDER BY minutes_to_post DESC
+                AND mtp_bucket = 30
+              LIMIT 20
             `,
           ])
           min15Rows.forEach((row: any) => {
