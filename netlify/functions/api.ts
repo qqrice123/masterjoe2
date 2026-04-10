@@ -2,14 +2,9 @@ import type { Handler } from "@netlify/functions"
 import { HorseRacingAPI, HKJCClient } from "hkjc-api"
 import { horseOddsQuery, horsePoolQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
 import { neon } from "@neondatabase/serverless"
-import axios from "axios"
-import * as cheerio from "cheerio"
 
 const horseAPI = new HorseRacingAPI()
 const hkjcClient = new HKJCClient()
-
-// SpeedPro and Racecard scraping logic has been removed.
-// All data is sourced exclusively from the HKJC GraphQL API.
 
 const STAT_WIN_RATES: Record<string, Record<string, number>> = {
   短途正常地: { "<119": 50.0, "120-124": 57.8, "125-129": 25.0, "130+": 57.1 },
@@ -35,7 +30,6 @@ function getWeightRDBenchmark(distance: number): number {
     .sort((a, b) => a - b)
   if (distance <= distances[0]) return WEIGHTRD_BENCHMARKS[distances[0]]
   if (distance >= distances[distances.length - 1]) return WEIGHTRD_BENCHMARKS[distances[distances.length - 1]]
-
   for (let i = 0; i < distances.length - 1; i++) {
     const d1 = distances[i]
     const d2 = distances[i + 1]
@@ -50,12 +44,12 @@ function getWeightRDBenchmark(distance: number): number {
 
 function getRatingMax(raceClass: string): number {
   const cls = raceClass.toUpperCase()
-  if (cls === 'A1' || cls.includes('CLASS 1') || cls === 'G1' || cls.includes('GROUP 1')) return 90
-  if (cls === 'A2' || cls.includes('CLASS 2') || cls === 'G2' || cls.includes('GROUP 2')) return 105
-  if (cls === 'A3' || cls.includes('CLASS 3') || cls === 'G3' || cls.includes('GROUP 3')) return 120
-  if (cls === 'A') return 75
-  if (cls === 'B') return 60
-  if (cls === 'C') return 45
+  if (cls === "A1" || cls.includes("CLASS 1") || cls === "G1" || cls.includes("GROUP 1")) return 90
+  if (cls === "A2" || cls.includes("CLASS 2") || cls === "G2" || cls.includes("GROUP 2")) return 105
+  if (cls === "A3" || cls.includes("CLASS 3") || cls === "G3" || cls.includes("GROUP 3")) return 120
+  if (cls === "A") return 75
+  if (cls === "B") return 60
+  if (cls === "C") return 45
   return 30
 }
 
@@ -69,29 +63,28 @@ function estimateAge(code: string): number {
   if (!code) return 4
   const letter = code.charAt(0).toUpperCase()
   const seasonMap: Record<string, number> = {
-    // Recent seasons based on 2024/2025 calculation
-    N: 2,  // 2024/25
-    M: 3,  // 2023/24
-    L: 3,  // 2022/23
-    K: 4,  // 2021/22
-    J: 5,  // 2020/21
-    H: 6,  // 2019/20
-    G: 7,  // 2018/19
-    E: 8,  // 2017/18
-    D: 9,  // 2016/17
-    C: 10, // 2015/16
+    N: 2,
+    M: 3,
+    L: 3,
+    K: 4,
+    J: 5,
+    H: 6,
+    G: 7,
+    E: 8,
+    D: 9,
+    C: 10,
   }
   return seasonMap[letter] || 5
 }
 
 function getConditionMult(last3Form: string): number {
-  const positions = last3Form.split(/[/\-]/).map(Number).filter(n => !isNaN(n) && n > 0)
+  const positions = last3Form.split(/[/\-]/).map(Number).filter((n) => !isNaN(n) && n > 0)
   if (positions.length === 0) return 1.0
   const avg = positions.reduce((a, b) => a + b, 0) / positions.length
-  if (positions[0] <= 2 && avg <= 3)   return 1.2   // 近期頂尖
-  if (positions[0] <= 3)               return 1.1   // 近期上佳
-  if (avg >= 8)                        return 0.8   // 近期差勁
-  if (avg >= 6)                        return 0.9   // 近期欠佳
+  if (positions[0] <= 2 && avg <= 3) return 1.2
+  if (positions[0] <= 3) return 1.1
+  if (avg >= 8) return 0.8
+  if (avg >= 6) return 0.9
   return 1.0
 }
 
@@ -99,36 +92,56 @@ function getDynamicWeights(distance: number, raceClass: string) {
   let wStat = 0.35
   let wBurden = 0.25
   let wRating = 0.15
-  let wAge = 0.10
+  let wAge = 0.1
   let wTime = 0.15
 
   const cls = raceClass.toUpperCase()
-  const isHighClass = cls.includes('CLASS 1') || cls.includes('CLASS 2') || cls.includes('CLASS 3') 
-                   || cls === 'A1' || cls === 'A2' || cls === 'A3' 
-                   || cls.includes('GROUP 1') || cls.includes('GROUP 2') || cls.includes('GROUP 3')
-                   || cls.includes('G1') || cls.includes('G2') || cls.includes('G3')
-  const isLowClass  = cls.includes('CLASS 4') || cls.includes('CLASS 5') || cls === 'A' || cls === 'B' || cls === 'C'
+  const isHighClass =
+    cls.includes("CLASS 1") ||
+    cls.includes("CLASS 2") ||
+    cls.includes("CLASS 3") ||
+    cls === "A1" ||
+    cls === "A2" ||
+    cls === "A3" ||
+    cls.includes("GROUP 1") ||
+    cls.includes("GROUP 2") ||
+    cls.includes("GROUP 3") ||
+    cls.includes("G1") ||
+    cls.includes("G2") ||
+    cls.includes("G3")
+  const isLowClass =
+    cls.includes("CLASS 4") ||
+    cls.includes("CLASS 5") ||
+    cls === "A" ||
+    cls === "B" ||
+    cls === "C"
 
   if (distance <= 1200) {
-    wBurden = 0.20
-    wTime = 0.20
+    wBurden = 0.2
+    wTime = 0.2
     wRating = 0.15
   } else if (distance >= 2000) {
     wStat = 0.35
-    wRating = 0.20
+    wRating = 0.2
     wTime = 0.05
   }
 
   if (isHighClass) {
     wRating = 0.25
-    wStat = 0.30
+    wStat = 0.3
   } else if (isLowClass) {
-    wBurden = 0.20
+    wBurden = 0.2
     wAge = 0.15
   }
 
   const total = wStat + wBurden + wRating + wAge + wTime
-  return { wStat: wStat / total, wBurden: wBurden / total, wRating: wRating / total, wAge: wAge / total, wTime: wTime / total }
+  return {
+    wStat: wStat / total,
+    wBurden: wBurden / total,
+    wRating: wRating / total,
+    wAge: wAge / total,
+    wTime: wTime / total,
+  }
 }
 
 function json(statusCode: number, body: unknown) {
@@ -153,6 +166,7 @@ export const handler: Handler = async (event) => {
 
     if (method !== "GET") return json(405, { error: "Method not allowed" })
 
+    // ── /meetings ──────────────────────────────────────────────────────────
     if (pathname === "/meetings") {
       try {
         const meetings = await horseAPI.getActiveMeetings()
@@ -171,11 +185,11 @@ export const handler: Handler = async (event) => {
       }
     }
 
+    // ── /races ─────────────────────────────────────────────────────────────
     if (pathname === "/races") {
       try {
         const meetings = await horseAPI.getAllRaces()
         let allRaces: any[] = []
-
         if (meetings && meetings.length > 0) {
           meetings.forEach((meeting: any) => {
             if (meeting.races) {
@@ -201,6 +215,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
+    // ── /predict/:venue/:raceNo ────────────────────────────────────────────
     const predictMatch = pathname.match(/^\/predict\/([^/]+)\/(\d+)/)
     if (predictMatch) {
       const venueCode = predictMatch[1]
@@ -214,13 +229,9 @@ export const handler: Handler = async (event) => {
       const race = meeting.races?.find((r: any) => r.no === raceNo || r.no === String(raceNo))
       if (!race) return json(404, { error: "未找到賽事" })
 
-      // Fetch odds map and fallback logic
+      // ── Step 1: WIN / PLA odds ─────────────────────────────────────────
       let oddsMap: Record<string, string> = {}
       let placeOddsMap: Record<string, string> = {}
-      let qinOddsMap: Record<string, number> = {}
-      let poolsData = { WIN: 0, PLA: 0, QIN: 0, QPL: 0, DBL: 0 }
-      let isPreRace = true
-
       try {
         const oddsResponse: any = await hkjcClient.request(horseOddsQuery, {
           date: meeting.date,
@@ -228,36 +239,33 @@ export const handler: Handler = async (event) => {
           raceNo,
           oddsTypes: ["WIN", "PLA"],
         })
-
         const pools = oddsResponse.raceMeetings[0]?.pmPools || []
-
         const winPool = pools.find((p: any) => p.oddsType === "WIN")
         if (winPool?.oddsNodes) {
           winPool.oddsNodes.forEach((node: any) => {
             oddsMap[node.combString] = node.oddsValue
           })
         }
-
         const plaPool = pools.find((p: any) => p.oddsType === "PLA")
         if (plaPool?.oddsNodes) {
           plaPool.oddsNodes.forEach((node: any) => {
             placeOddsMap[node.combString] = node.oddsValue
           })
         }
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
 
-      // ── Fetch QIN odds (separate call using same horseOddsQuery) ──
+      // ── Step 2: QIN odds (for per-horse aggregation) ───────────────────
+      let qinOddsMap: Record<string, number> = {}
       try {
         const qinOddsResponse: any = await hkjcClient.request(horseOddsQuery, {
           date: meeting.date,
           venueCode: meeting.venueCode,
           raceNo,
-          oddsTypes: ["QIN", "QPL"],
+          oddsTypes: ["QIN"],
         })
-        const qinPools = qinOddsResponse.raceMeetings[0]?.pmPools || []
-        const qinPool  = qinPools.find((p: any) => p.oddsType === "QIN")
+        const qinPool = (qinOddsResponse.raceMeetings[0]?.pmPools || []).find(
+          (p: any) => p.oddsType === "QIN"
+        )
         if (qinPool?.oddsNodes) {
           qinPool.oddsNodes.forEach((node: any) => {
             const v = parseFloat(node.oddsValue)
@@ -266,7 +274,9 @@ export const handler: Handler = async (event) => {
         }
       } catch { /* ignore */ }
 
-      // ── Fetch pool totals via horsePoolQuery (investment field) ──
+      // ── Step 3: Pool investment totals (horsePoolQuery) ────────────────
+      let poolsData = { WIN: 0, PLA: 0, QIN: 0, QPL: 0, DBL: 0 }
+      let isPreRace = true
       try {
         const poolResponse: any = await hkjcClient.request(horsePoolQuery, {
           date: meeting.date,
@@ -283,93 +293,57 @@ export const handler: Handler = async (event) => {
           QPL: Number(findPool("QPL")?.investment || 0),
           DBL: Number(findPool("DBL")?.investment || 0),
         }
+        if (poolsData.WIN > 0 || poolsData.QIN > 0) isPreRace = false
       } catch { /* ignore */ }
 
-      // ── QIN 賠率（用於聚合計算）──
-try {
-  const qr: any = await hkjcClient.request(horseOddsQuery, {
-    date: meeting.date, venueCode: meeting.venueCode,
-    raceNo, oddsTypes: ["QIN"],
-  })
-  const qp = (qr.raceMeetings[0]?.pmPools || []).find((p: any) => p.oddsType === "QIN")
-  if (qp?.oddsNodes) {
-    qp.oddsNodes.forEach((node: any) => {
-      const v = parseFloat(node.oddsValue)
-      if (!isNaN(v) && v > 0) qinOddsMap[node.combString] = v
-    })
-  }
-} catch { /* ignore */ }
-
-// ── 彩池總額（horsePoolQuery 才有 investment 欄位）──
-try {
-  const pr: any = await hkjcClient.request(horsePoolQuery, {
-    date: meeting.date, venueCode: meeting.venueCode,
-    raceNo, oddsTypes: ["WIN", "PLA", "QIN", "QPL"],
-  })
-  const invs = pr.raceMeetings[0]?.poolInvs || []
-  const get = (t: string) => Number(invs.find((p: any) => p.oddsType === t)?.investment || 0)
-  poolsData = { WIN: get("WIN"), PLA: get("PLA"), QIN: get("QIN"), QPL: get("QPL"), DBL: get("DBL") }
-  if (poolsData.WIN > 0 || poolsData.QIN > 0) isPreRace = false
-} catch { /* ignore */ }
-
-// Fetch historical odds from Neon 
+      // ── Step 4: Historical odds from Neon ─────────────────────────────
       let historicalOddsMap: Record<string, number> = {}
       let min30OddsMap: Record<string, number> = {}
-      
       if (process.env.DATABASE_URL) {
         try {
           const sql = neon(process.env.DATABASE_URL)
-          
-          // HKJC date format conversion to match our Neon schema
           const d = meeting.date.replace(/[\/-]/g, "")
           const isoDate = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
-          
-          // 並行查詢兩個時間段的賠率
           const [min15Rows, min30Rows] = await Promise.all([
             sql`
-              SELECT runner_number, odds 
-              FROM odds_snapshots 
-              WHERE date = ${isoDate} 
-                AND venue = ${venueCode.toUpperCase()} 
-                AND race_no = ${raceNo} 
+              SELECT runner_number, odds
+              FROM odds_snapshots
+              WHERE date = ${isoDate}
+                AND venue = ${venueCode.toUpperCase()}
+                AND race_no = ${raceNo}
                 AND minutes_to_post BETWEEN -20 AND -10
               ORDER BY minutes_to_post DESC
             `,
             sql`
-              SELECT runner_number, odds 
-              FROM odds_snapshots 
-              WHERE date = ${isoDate} 
-                AND venue = ${venueCode.toUpperCase()} 
-                AND race_no = ${raceNo} 
+              SELECT runner_number, odds
+              FROM odds_snapshots
+              WHERE date = ${isoDate}
+                AND venue = ${venueCode.toUpperCase()}
+                AND race_no = ${raceNo}
                 AND minutes_to_post BETWEEN -35 AND -25
               ORDER BY minutes_to_post DESC
-            `
-          ]);
-          
-          // Get the closest available snapshot for each horse in that window
+            `,
+          ])
           min15Rows.forEach((row: any) => {
             const runnerNum = String(row.runner_number).padStart(2, "0")
-            if (!historicalOddsMap[runnerNum]) {
-              historicalOddsMap[runnerNum] = parseFloat(row.odds)
-            }
+            if (!historicalOddsMap[runnerNum]) historicalOddsMap[runnerNum] = parseFloat(row.odds)
           })
-          
           min30Rows.forEach((row: any) => {
             const runnerNum = String(row.runner_number).padStart(2, "0")
-            if (!min30OddsMap[runnerNum]) {
-              min30OddsMap[runnerNum] = parseFloat(row.odds)
-            }
+            if (!min30OddsMap[runnerNum]) min30OddsMap[runnerNum] = parseFloat(row.odds)
           })
         } catch (e: any) {
           console.error("Neon fetch odds failed", e.message)
         }
       }
 
+      // ── Build predictions ──────────────────────────────────────────────
       const runners = race.runners || []
       const distance = Number(race.distance) || 1200
       const isSprint = distance <= 1200
       const isWet =
-        (race.go_en || "").toUpperCase().includes("SOFT") || (race.go_en || "").toUpperCase().includes("YIELDING")
+        (race.go_en || "").toUpperCase().includes("SOFT") ||
+        (race.go_en || "").toUpperCase().includes("YIELDING")
       const groundKey = isWet ? "變化地" : "正常地"
       const raceTypeKey = isSprint ? "短途" : "中長途"
       const statCategory = `${raceTypeKey}${groundKey}`
@@ -387,8 +361,8 @@ try {
         const currentRating = parseInt(r.currentRating as any) || 0
 
         const last3Form = r.last6run
-            ? r.last6run.split(/[/\- ]/).slice(0, 3).join("/")
-            : "—"
+          ? r.last6run.split(/[/\- ]/).slice(0, 3).join("/")
+          : "—"
 
         const horseCode = r.horse?.code || ""
         const age = estimateAge(horseCode)
@@ -432,19 +406,29 @@ try {
         let fGround = 1.0
         const goingStr = (race.go_ch || race.go_en || "").toUpperCase()
         if (goingStr.includes("大爛地") || goingStr.includes("爛") || goingStr.includes("HEAVY")) fGround = 1.3
-        else if (goingStr.includes("軟") || goingStr.includes("SOFT") || goingStr.includes("YIELDING") || goingStr.includes("黏")) fGround = 1.15
-        else if (goingStr.includes("好至快") || (goingStr.includes("好") && goingStr.includes("快")) || goingStr.includes("GOOD TO FIRM") || goingStr.includes("GOOD/FIRM")) fGround = 1.0
+        else if (
+          goingStr.includes("軟") ||
+          goingStr.includes("SOFT") ||
+          goingStr.includes("YIELDING") ||
+          goingStr.includes("黏")
+        )
+          fGround = 1.15
+        else if (
+          goingStr.includes("好至快") ||
+          (goingStr.includes("好") && goingStr.includes("快")) ||
+          goingStr.includes("GOOD TO FIRM") ||
+          goingStr.includes("GOOD/FIRM")
+        )
+          fGround = 1.0
         else if (goingStr === "好地" || goingStr.includes("好") || goingStr.includes("GOOD")) fGround = 1.05
 
         let fStyle = 1.0
-        const runNums = (r.last6run ?? "").split(/[/\- ]/).map(Number).filter(n => !isNaN(n) && n > 0);
+        const runNums = (r.last6run ?? "").split(/[/\- ]/).map(Number).filter((n: number) => !isNaN(n) && n > 0)
         if (runNums.includes(1) || runNums.includes(2)) fStyle = 0.95
-        else if (runNums.some(n => n >= 9)) fStyle = 1.05
+        else if (runNums.some((n: number) => n >= 9)) fStyle = 1.05
 
         const timeAdvantage = deltaTBase * fGround * fStyle
-
         const ratingScore = Math.min(1.0, currentRating / classLimit)
-
         const timeScore = Math.max(0, Math.min(1.0, 0.5 - timeAdvantage))
 
         const conditionMult = getConditionMult(last3Form)
@@ -453,9 +437,15 @@ try {
         else if (conditionMult >= 1.0) conditionLabel = "狀態穩"
         else if (conditionMult <= 0.8) conditionLabel = "狀態差"
         else conditionLabel = "略降"
-        const { wStat, wBurden, wRating, wAge, wTime } = dynamicWeights
 
-        const rawScore = (statScore * wStat + burdenScore * wBurden + ratingScore * wRating + ageBonus * wAge + timeScore * wTime) * 100
+        const { wStat, wBurden, wRating, wAge, wTime } = dynamicWeights
+        const rawScore =
+          (statScore * wStat +
+            burdenScore * wBurden +
+            ratingScore * wRating +
+            ageBonus * wAge +
+            timeScore * wTime) *
+          100
         const score = Math.round(rawScore * conditionMult)
 
         const marketImpliedProb = hasOdds ? 1 / (winOdds + 1) : 1 / 99
@@ -479,102 +469,68 @@ try {
         const weightD = weight * distance
 
         let displayRunnerNumber: string | number = parseInt(r.no)
-        if (!r.no || isNaN(displayRunnerNumber) || String(r.no).toLowerCase().includes("standby") || String(r.no).includes("後備")) {
+        if (
+          !r.no ||
+          isNaN(displayRunnerNumber as number) ||
+          String(r.no).toLowerCase().includes("standby") ||
+          String(r.no).includes("後備")
+        ) {
           const match = String(r.no || "").match(/\d+/)
           displayRunnerNumber = match ? `R${match[0]}` : "R"
         }
 
-        // Odds history handling
-        const oddsHistory: any = {
-          overnight: null,
-          min30: null,
-          min15: null,
-          current: displayOdds
-        };
-        
-        // Fetch real historical odds from Neon if available, otherwise fallback to deterministic drift
-        const runnerKey = String(displayRunnerNumber).replace(/\D/g, "").padStart(2, "0");
-        if (historicalOddsMap[runnerKey]) {
-          oddsHistory.min15 = historicalOddsMap[runnerKey];
-        }
-        
-        if (min30OddsMap[runnerKey]) {
-          oddsHistory.min30 = min30OddsMap[runnerKey];
-        }
+        // ── Odds history ──────────────────────────────────────────────────
+        const oddsHistory: any = { overnight: null, min30: null, min15: null, current: displayOdds }
+        const runnerKey = String(displayRunnerNumber).replace(/\D/g, "").padStart(2, "0")
+        if (historicalOddsMap[runnerKey]) oddsHistory.min15 = historicalOddsMap[runnerKey]
+        if (min30OddsMap[runnerKey]) oddsHistory.min30 = min30OddsMap[runnerKey]
 
-        // Fallback for missing data
+        // Fallback: deterministic drift when no Neon data yet
         if (!oddsHistory.min15 && displayOdds !== "—") {
-           const oddsNum = parseFloat(String(displayOdds));
-           if (!isNaN(oddsNum)) {
-              // Determine a slight drift (-5% to +5%) based on horse number to be deterministic
-              const num = typeof displayRunnerNumber === 'string' ? parseInt(displayRunnerNumber.replace(/\D/g, "")) || 0 : displayRunnerNumber;
-              const drift = (num % 11 - 5) / 100; 
-              oddsHistory.min15 = parseFloat((oddsNum * (1 - drift)).toFixed(1));
-           }
+          const oddsNum = parseFloat(String(displayOdds))
+          if (!isNaN(oddsNum)) {
+            const num =
+              typeof displayRunnerNumber === "string"
+                ? parseInt(displayRunnerNumber.replace(/\D/g, "")) || 0
+                : displayRunnerNumber
+            const drift = ((num as number) % 11 - 5) / 100
+            oddsHistory.min15 = parseFloat((oddsNum * (1 - drift)).toFixed(1))
+          }
         }
 
-        // ── 彩池逆向推算 ──
-        const POOL_DEDUCTION = 0.825
+        // ── Pool reverse-engineering (pre-race uses 28M/20M estimate) ─────
+        const DEDUCT = 0.825
+        const WIN_BASE = isPreRace ? 28_000_000 : poolsData.WIN
+        const QIN_BASE = isPreRace ? 20_000_000 : poolsData.QIN
+
         const estWinInvestment =
-          hasOdds && poolsData.WIN > 0
-            ? Math.round((poolsData.WIN * POOL_DEDUCTION) / winOdds)
+          hasOdds && winOdds > 0
+            ? Math.round((WIN_BASE * DEDUCT) / winOdds)
             : null
 
-        const runnerNoStr = String(r.no).padStart(2, "0")
-        let _qinSum = 0
+        const rNo = String(r.no).padStart(2, "0")
+        let qinSum = 0
         Object.entries(qinOddsMap).forEach(([combo, odds]) => {
-          if (odds > 0 && poolsData.QIN > 0) {
+          if (odds > 0 && QIN_BASE > 0) {
             const parts = combo.split("-").map((x: string) => x.padStart(2, "0"))
-            if (parts.includes(runnerNoStr)) {
-              _qinSum += (poolsData.QIN * POOL_DEDUCTION) / odds
-            }
+            if (parts.includes(rNo)) qinSum += (QIN_BASE * DEDUCT) / odds
           }
         })
-        const estQINInvestment = _qinSum > 0 ? Math.round(_qinSum) : null
+        const estQINInvestment = qinSum > 0 ? Math.round(qinSum) : null
 
-        // ── 大戶落飛偵測 ──
+        // ── Large-bet detection (requires overnight odds in Neon) ─────────
         let moneyAlert: "large_bet" | "steady" | "drifting" | undefined
         if (oddsHistory.overnight && displayOdds !== "—") {
-          const overnight = parseFloat(String(oddsHistory.overnight))
-          const current   = parseFloat(String(displayOdds))
-          if (!isNaN(overnight) && !isNaN(current)) {
-            const drop = (overnight - current) / overnight
-            if (drop >= 0.30)       moneyAlert = "large_bet"
-            else if (drop <= -0.20) moneyAlert = "drifting"
-            else                    moneyAlert = "steady"
+          const ov = parseFloat(String(oddsHistory.overnight))
+          const cu = parseFloat(String(displayOdds))
+          if (!isNaN(ov) && !isNaN(cu)) {
+            const drop = (ov - cu) / ov
+            moneyAlert = drop >= 0.3 ? "large_bet" : drop <= -0.2 ? "drifting" : "steady"
           }
         }
 
-        // ── 彩池逆向推算（開盤前用 28M/20M 估算）──
-const DEDUCT = 0.825
-const WIN_BASE = isPreRace ? 28_000_000 : poolsData.WIN
-const QIN_BASE = isPreRace ? 20_000_000 : poolsData.QIN
-
-const estWinInvestment = hasOdds && winOdds > 0
-  ? Math.round((WIN_BASE * DEDUCT) / winOdds)
-  : null
-
-const rNo = String(r.no).padStart(2, "0")
-let qinSum = 0
-Object.entries(qinOddsMap).forEach(([combo, odds]) => {
-  if (odds > 0 && QIN_BASE > 0) {
-    const parts = combo.split("-").map((x: string) => x.padStart(2, "0"))
-    if (parts.includes(rNo)) qinSum += (QIN_BASE * DEDUCT) / odds
-  }
-})
-const estQINInvestment = qinSum > 0 ? Math.round(qinSum) : null
-
-let moneyAlert: "large_bet" | "steady" | "drifting" | undefined
-if (oddsHistory.overnight && displayOdds !== "—") {
-  const ov = parseFloat(String(oddsHistory.overnight))
-  const cu = parseFloat(String(displayOdds))
-  if (!isNaN(ov) && !isNaN(cu)) {
-    const drop = (ov - cu) / ov
-    moneyAlert = drop >= 0.30 ? "large_bet" : drop <= -0.20 ? "drifting" : "steady"
-  }
-}
-
-return { runnerNumber: displayRunnerNumber,  
+        return {
+          runnerNumber: displayRunnerNumber,
           runnerName: r.name_ch || r.name_en,
           jockey: r.jockey?.name_ch || r.jockey?.name_en || "未知",
           trainer: r.trainer?.name_ch || r.trainer?.name_en || "未知",
@@ -611,7 +567,11 @@ return { runnerNumber: displayRunnerNumber,
           expectedValue: 0,
           kellyFraction: 0,
           analysis: `【${grade}級】綜合評分 ${(score / 100).toFixed(2)} (A:0.8+, B:0.6+)。${
-            timeAdvantage < 0 ? `具備 ${Math.abs(timeAdvantage).toFixed(3)}s 時間優勢` : timeAdvantage > 0 ? `存在 ${timeAdvantage.toFixed(3)}s 時間劣勢` : `時間差 0.000s`
+            timeAdvantage < 0
+              ? `具備 ${Math.abs(timeAdvantage).toFixed(3)}s 時間優勢`
+              : timeAdvantage > 0
+              ? `存在 ${timeAdvantage.toFixed(3)}s 時間劣勢`
+              : `時間差 0.000s`
           }。累積負擔(WeightRD) ${weightRD.toFixed(1)}，標準區間(${benchmark.toFixed(1)})。`,
           oddsHistory,
           estWinInvestment,
@@ -621,6 +581,7 @@ return { runnerNumber: displayRunnerNumber,
         }
       })
 
+      // ── Softmax win probability ────────────────────────────────────────
       const expScores = predictions.map((p: any) => Math.exp(p.score / 20))
       const totalExp = expScores.reduce((a: number, b: number) => a + b, 0)
 
@@ -632,7 +593,6 @@ return { runnerNumber: displayRunnerNumber,
 
         if (p.winOdds !== "—") {
           const winOddsNum = parseFloat(p.winOdds as string)
-          // Standard expected net return: p * odds - 1
           p.expectedValue = parseFloat((p.winProbModel * winOddsNum - 1).toFixed(2))
           if (winOddsNum > 1) {
             const kelly = p.expectedValue / (winOddsNum - 1)
@@ -640,60 +600,69 @@ return { runnerNumber: displayRunnerNumber,
           }
         }
 
-        // Combat Advice Logic based on new System Principles
-          const diffProbPercentage = p.diffProb * 100;
-          let advice = "";
-          let combatStatus = "AVOID";
-          let tieBreakerNotes = [];
+        // ── Combat advice ────────────────────────────────────────────────
+        const diffPct = p.diffProb * 100
+        let advice = ""
+        let combatStatus = "AVOID"
+        const tieBreakerNotes: string[] = []
 
-          if (p.weightRD < benchmark * 0.97) tieBreakerNotes.push("WeightRD優勢");
-          const timeThreshold = (distance || 1200) <= 1200 ? -0.1 : (distance || 1200) <= 1650 ? -0.2 : (distance || 1200) <= 2000 ? -0.3 : -0.4;
-           if (p.timeAdvantage < timeThreshold) tieBreakerNotes.push("時間差優勢");
-          if (p.ageBonus >= 1.0 && p.ageBonus < 1.05) tieBreakerNotes.push("巔峰戰將"); 
-          
-          // 檔位與賠率走勢: 若賠率持續下跌（市場資金流入），代表市場在修正
-          const oddsDropping = p.oddsHistory.current != null && p.oddsHistory.current !== "—" && 
-                               p.oddsHistory.min15 != null && p.oddsHistory.min15 !== "—" && 
-                               parseFloat(String(p.oddsHistory.current)) < parseFloat(String(p.oddsHistory.min15));
-          if (oddsDropping) tieBreakerNotes.push("賠率下跌(市場資金流入)");
+        if (p.weightRD < benchmark * 0.97) tieBreakerNotes.push("WeightRD優勢")
+        const timeThreshold =
+          (distance || 1200) <= 1200
+            ? -0.1
+            : (distance || 1200) <= 1650
+            ? -0.2
+            : (distance || 1200) <= 2000
+            ? -0.3
+            : -0.4
+        if (p.timeAdvantage < timeThreshold) tieBreakerNotes.push("時間差優勢")
+        if (p.ageBonus >= 1.0 && p.ageBonus < 1.05) tieBreakerNotes.push("巔峰戰將")
 
-          const tieBreakerStr = tieBreakerNotes.length > 0 ? ` (+${tieBreakerNotes.join(", ")})` : "";
+        const oddsDropping =
+          p.oddsHistory.current != null &&
+          p.oddsHistory.current !== "—" &&
+          p.oddsHistory.min15 != null &&
+          p.oddsHistory.min15 !== "—" &&
+          parseFloat(String(p.oddsHistory.current)) < parseFloat(String(p.oddsHistory.min15))
+        if (oddsDropping) tieBreakerNotes.push("賠率下跌(市場資金流入)")
 
-          // 核心概念判斷：正優勢 (≥5%), 接近/灰色地帶 (<5%), 負優勢 (<0)
-          if (diffProbPercentage >= -6 && diffProbPercentage <= -3) {
-             advice = `⚡市場偏好 Q位關注${tieBreakerStr}`;
-             combatStatus = "SHADOW";   // 甜蜜區間：市場早於模型識別
-          } else if (diffProbPercentage < -3) {
-             advice = "避免投注 ⚠️ (模擬勝率 < 市場，市場高估此馬)";
-             combatStatus = "AVOID";
-          } else if (diffProbPercentage > -3 && diffProbPercentage <= 0) {
-             advice = `⚠️觀望 (差值微負)${tieBreakerStr}`;
-             combatStatus = "AVOID";
-          } else if (diffProbPercentage > 0 && diffProbPercentage < 3) {
-             advice = "不投注 (差距 < 3% 且 EV 在抽水後必為負值)";
-             combatStatus = "AVOID";
-          } else if (diffProbPercentage >= 3 && diffProbPercentage < 5) {
-             if ((p.grade === "A" || p.grade === "B") && p.draw >= 1 && p.draw <= 6) {
-                advice = `最小注碼試注或考慮位置(Q位) (差距 3-5% 且具備 A/B 級與1-6檔位)${tieBreakerStr}`;
-                combatStatus = "CAUTION";
-             } else {
-                advice = `改投位置或觀望 (差距 3-5%，無檔位/評級優勢)${tieBreakerStr}`;
-                combatStatus = "CAUTION";
-             }
-          } else if (diffProbPercentage >= 5) {
-             advice = `積極投注 ⭐⭐⭐ (差距 ≥ 5%，具備正期望值)${tieBreakerStr}`;
-             combatStatus = "GO";
+        const tb = tieBreakerNotes.length > 0 ? ` (+${tieBreakerNotes.join(", ")})` : ""
+
+        if (diffPct >= -6 && diffPct <= -3) {
+          advice = `⚡市場偏好 Q位關注${tb}`
+          combatStatus = "SHADOW"
+        } else if (diffPct < -3) {
+          advice = "避免投注 ⚠️ (模擬勝率 < 市場，市場高估此馬)"
+          combatStatus = "AVOID"
+        } else if (diffPct > -3 && diffPct <= 0) {
+          advice = `⚠️觀望 (差值微負)${tb}`
+          combatStatus = "AVOID"
+        } else if (diffPct > 0 && diffPct < 3) {
+          advice = "不投注 (差距 < 3% 且 EV 在抽水後必為負值)"
+          combatStatus = "AVOID"
+        } else if (diffPct >= 3 && diffPct < 5) {
+          if ((p.grade === "A" || p.grade === "B") && p.draw >= 1 && p.draw <= 6) {
+            advice = `最小注碼試注或考慮位置(Q位) (差距 3-5% 且具備 A/B 級與1-6檔位)${tb}`
+            combatStatus = "CAUTION"
           } else {
-             advice = "最佳策略是不投注，等待下一場更明確的機會";
-             combatStatus = "AVOID";
+            advice = `改投位置或觀望 (差距 3-5%，無檔位/評級優勢)${tb}`
+            combatStatus = "CAUTION"
           }
-          
-          p.combatAdvice = advice;
-          p.combatStatus = combatStatus;
+        } else if (diffPct >= 5) {
+          advice = `積極投注 ⭐⭐⭐ (差距 ≥ 5%，具備正期望值)${tb}`
+          combatStatus = "GO"
+        } else {
+          advice = "最佳策略是不投注，等待下一場更明確的機會"
+          combatStatus = "AVOID"
+        }
+
+        p.combatAdvice = advice
+        p.combatStatus = combatStatus
 
         if (p.grade === "A") p.investmentLabel = "BEST"
         else if (p.grade === "B") p.investmentLabel = "STABLE"
-        else if (p.expectedValue > 0 && p.weight <= 118 && p.weightRD < benchmark) p.investmentLabel = "DARKHORSE"
+        else if (p.expectedValue > 0 && p.weight <= 118 && p.weightRD < benchmark)
+          p.investmentLabel = "DARKHORSE"
 
         if (p.riskFactors.length > 0 && p.investmentLabel !== "BEST") p.investmentLabel = "RISK"
       })
@@ -704,30 +673,29 @@ return { runnerNumber: displayRunnerNumber,
         return a.runnerNumber - b.runnerNumber
       })
 
-      // Filter out reserve horses before calculating summary metrics
-      const validPredictions = predictions.filter((p: any) => !String(p.runnerNumber).startsWith('R'));
-      const topPick = validPredictions.length > 0 ? validPredictions[0] : predictions[0];
+      const validPredictions = predictions.filter((p: any) => !String(p.runnerNumber).startsWith("R"))
+      const topPick = validPredictions.length > 0 ? validPredictions[0] : predictions[0]
       const hasDarkHorse = validPredictions.some((p: any) => p.investmentLabel === "DARKHORSE")
       const highRiskRunners = validPredictions.filter((p: any) => p.investmentLabel === "RISK").length
 
       const summaryText = `AI 四維度分析（按模型賠率排名）：首選 #${topPick.runnerNumber} ${topPick.runnerName}（模型賠率 ${topPick.modelOdds}）。${
-          hasDarkHorse ? "本場存在潛在黑馬，" : ""
-        }${highRiskRunners > 0 ? `有 ${highRiskRunners} 匹高風險賽駒需警惕。` : "全場狀態相對穩定。"}`;
+        hasDarkHorse ? "本場存在潛在黑馬，" : ""
+      }${highRiskRunners > 0 ? `有 ${highRiskRunners} 匹高風險賽駒需警惕。` : "全場狀態相對穩定。"}`
 
       const raceDetail = {
-              id: race.id,
-              raceNumber: race.no,
-              raceName: race.raceName_ch || race.raceName_en || `第 ${race.no} 場`,
-              distance: race.distance,
-              distanceMeters: distance,
-              benchmarkRD: benchmark,
-              course: race.raceCourse?.description_ch || race.raceCourse?.description_en || "草地",
-              raceClass: race.raceClass_ch || race.raceClass_en || "",
-              runners: race.wageringFieldSize || runners.length,
-              totalRaces: (meeting as any).totalRaces || meeting.races?.length || 11,
-              meetingId: meeting.id || "current",
-              venueCode,
-              date: meeting.date,
+        id: race.id,
+        raceNumber: race.no,
+        raceName: race.raceName_ch || race.raceName_en || `第 ${race.no} 場`,
+        distance: race.distance,
+        distanceMeters: distance,
+        benchmarkRD: benchmark,
+        course: race.raceCourse?.description_ch || race.raceCourse?.description_en || "草地",
+        raceClass: race.raceClass_ch || race.raceClass_en || "",
+        runners: race.wageringFieldSize || runners.length,
+        totalRaces: (meeting as any).totalRaces || meeting.races?.length || 11,
+        meetingId: meeting.id || "current",
+        venueCode,
+        date: meeting.date,
         track: race.raceTrack?.description_ch || race.raceTrack?.description_en || "草地",
         going: race.go_ch || race.go_en || "好地",
         postTime: race.postTime,
@@ -738,7 +706,8 @@ return { runnerNumber: displayRunnerNumber,
         isPreRace,
         summary: summaryText,
         aiSummary: summaryText,
-        confidence: topPick.winProbModel >= 0.18 ? "HIGH" : topPick.winProbModel >= 0.1 ? "MEDIUM" : "LOW",
+        confidence:
+          topPick.winProbModel >= 0.18 ? "HIGH" : topPick.winProbModel >= 0.1 ? "MEDIUM" : "LOW",
       }
 
       return json(200, raceDetail)
