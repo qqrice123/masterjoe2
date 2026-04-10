@@ -490,11 +490,12 @@ export const handler: Handler = async (event) => {
           raceName: race.raceName_ch ?? race.raceName_en ?? `Race ${raceNo}`,
         })
       }
-      const distance = Number(race.distance) || 1200
+      const distance = parseInt(String(race.distance ?? '1200'), 10) || 1200
       const isSprint = distance <= 1200
-      const isWet =
-        (race.go_en || "").toUpperCase().includes("SOFT") ||
-        (race.go_en || "").toUpperCase().includes("YIELDING")
+      
+      const goingStr = ((race.go_ch ?? '') + (race.go_en ?? '')).toUpperCase()
+      const isWet = goingStr.includes("SOFT") || goingStr.includes("YIELDING")
+      
       const groundKey = isWet ? "變化地" : "正常地"
       const raceTypeKey = isSprint ? "短途" : "中長途"
       const statCategory = `${raceTypeKey}${groundKey}`
@@ -503,17 +504,18 @@ export const handler: Handler = async (event) => {
       const benchmark = getWeightRDBenchmark(distance)
       const dynamicWeights = getDynamicWeights(distance, race.raceClass_en || race.raceClass_ch || "4")
 
-      const predictions = runners.map((r: any) => {
-        const winOddsStr = r.winOdds || oddsMap[r.no.padStart(2, "0")] || oddsMap[r.no] || ""
-        const hasOdds = winOddsStr !== ""
-        const winOdds = hasOdds ? parseFloat(winOddsStr) : 99
-        const weight = parseInt(r.handicapWeight as any) || 120
-        const horseWeight = parseInt(r.currentWeight as any) || 1100
-        const currentRating = parseInt(r.currentRating as any) || 0
+      const predictions = runners.flatMap((r: any) => {
+        try {
+          const winOddsStr = r.winOdds || oddsMap[r.no.padStart(2, "0")] || oddsMap[r.no] || ""
+          const hasOdds = winOddsStr !== ""
+          const winOdds = hasOdds ? parseFloat(winOddsStr) : 99
+          const weight = parseInt(r.handicapWeight as any) || 120
+          const horseWeight = parseInt(r.currentWeight as any) || 1100
+          const currentRating = parseInt(r.currentRating as any) || 0
 
-        const last3Form = r.last6run
-          ? r.last6run.split(/[/\- ]/).slice(0, 3).join("/")
-          : "—"
+          const last3Form = r.last6run
+            ? r.last6run.split(/[/\- ]/).slice(0, 3).join("/")
+            : "—"
 
         const horseCode = r.horse?.code || ""
         const age = estimateAge(horseCode)
@@ -680,7 +682,7 @@ export const handler: Handler = async (event) => {
           }
         }
 
-        return {
+        return [{
           runnerNumber: displayRunnerNumber,
           runnerName: r.name_ch || r.name_en,
           jockey: r.jockey?.name_ch || r.jockey?.name_en || "未知",
@@ -729,6 +731,54 @@ export const handler: Handler = async (event) => {
           estQINInvestment,
           moneyAlert,
           isTheoretical: isPreRace,
+        }]
+        } catch (runnerErr: any) {
+          console.error(`Runner ${r?.no} parse error:`, runnerErr?.message)
+          // Return a minimal fallback so the race still loads
+          return [{
+            runnerNumber: r?.no ?? '?',
+            runnerName: r?.name_ch ?? r?.name_en ?? `Runner ${r?.no}`,
+            jockey: r?.jockey?.name_ch ?? r?.jockey?.name_en ?? '—',
+            trainer: r?.trainer?.name_ch ?? r?.trainer?.name_en ?? '—',
+            draw: 0,
+            weight: 120,
+            winProbability: 0,
+            placeProb: 0,
+            winOdds: "—",
+            placeOdds: "—",
+            score: 0,
+            grade: "D",
+            rating: 0,
+            horseWeight: 1000,
+            last3Form: "—",
+            investmentLabel: "NONE",
+            riskFactors: ["Error"],
+            weightD: 0,
+            weightRatio: 0,
+            weightRD: 0,
+            timeAdvantage: 0,
+            statRate: 0,
+            statScore: 0,
+            ratingScore: 0,
+            age: 5,
+            ageStage: "unknown",
+            ageStageLabel: "未知",
+            ageBonus: 1,
+            conditionLabel: "未知",
+            conditionMultiplier: 1,
+            marketImpliedProb: 0,
+            winProbModel: 0,
+            modelOdds: 0,
+            diffProb: 0,
+            expectedValue: 0,
+            kellyFraction: 0,
+            analysis: "解析錯誤",
+            oddsHistory: { overnight: null, min30: null, min15: null, current: "—" },
+            estWinInvestment: null,
+            estQINInvestment: null,
+            moneyAlert: "steady",
+            isTheoretical: true,
+          }]
         }
       })
 
