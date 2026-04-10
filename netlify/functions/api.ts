@@ -217,13 +217,15 @@ export const handler: Handler = async (event) => {
       // Fetch odds map and fallback logic
       let oddsMap: Record<string, string> = {}
       let placeOddsMap: Record<string, string> = {}
+      let qinOddsMap: Record<string, number> = {}
+      let poolsData = { WIN: 0, PLA: 0, QIN: 0, QPL: 0, DBL: 0 }
 
       try {
         const oddsResponse: any = await hkjcClient.request(horseOddsQuery, {
           date: meeting.date,
           venueCode: meeting.venueCode,
           raceNo,
-          oddsTypes: ["WIN", "PLA"],
+          oddsTypes: ["WIN", "PLA", "QIN", "QPL"],
         })
 
         const pools = oddsResponse.raceMeetings[0]?.pmPools || []
@@ -240,6 +242,23 @@ export const handler: Handler = async (event) => {
           plaPool.oddsNodes.forEach((node: any) => {
             placeOddsMap[node.combString] = node.oddsValue
           })
+        }
+
+        const qinPool = pools.find((p: any) => p.oddsType === "QIN")
+        if (qinPool?.oddsNodes) {
+          qinPool.oddsNodes.forEach((node: any) => {
+            const v = parseFloat(node.oddsValue)
+            if (!isNaN(v)) qinOddsMap[node.combString] = v
+          })
+        }
+
+        const qplPool = pools.find((p: any) => p.oddsType === "QPL")
+        poolsData = {
+          WIN: Number(winPool?.grossInv || winPool?.totalInv || 0),
+          PLA: Number(plaPool?.grossInv || plaPool?.totalInv || 0),
+          QIN: Number(qinPool?.grossInv || qinPool?.totalInv || 0),
+          QPL: Number(qplPool?.grossInv || qplPool?.totalInv || 0),
+          DBL: 0,
         }
       } catch {
         // ignore
@@ -446,6 +465,38 @@ export const handler: Handler = async (event) => {
            }
         }
 
+        // ── 彩池逆向推算 ──
+        const POOL_DEDUCTION = 0.825
+        const estWinInvestment =
+          hasOdds && poolsData.WIN > 0
+            ? Math.round((poolsData.WIN * POOL_DEDUCTION) / winOdds)
+            : null
+
+        const runnerNoStr = String(r.no).padStart(2, "0")
+        let _qinSum = 0
+        Object.entries(qinOddsMap).forEach(([combo, odds]) => {
+          if (odds > 0 && poolsData.QIN > 0) {
+            const parts = combo.split("-").map((x: string) => x.padStart(2, "0"))
+            if (parts.includes(runnerNoStr)) {
+              _qinSum += (poolsData.QIN * POOL_DEDUCTION) / odds
+            }
+          }
+        })
+        const estQINInvestment = _qinSum > 0 ? Math.round(_qinSum) : null
+
+        // ── 大戶落飛偵測 ──
+        let moneyAlert: "large_bet" | "steady" | "drifting" | undefined
+        if (oddsHistory.overnight && displayOdds !== "—") {
+          const overnight = parseFloat(String(oddsHistory.overnight))
+          const current   = parseFloat(String(displayOdds))
+          if (!isNaN(overnight) && !isNaN(current)) {
+            const drop = (overnight - current) / overnight
+            if (drop >= 0.30)      moneyAlert = "large_bet"
+            else if (drop <= -0.20) moneyAlert = "drifting"
+            else                    moneyAlert = "steady"
+          }
+        }
+
         return {
           runnerNumber: displayRunnerNumber,
           runnerName: r.name_ch || r.name_en,
@@ -487,6 +538,9 @@ export const handler: Handler = async (event) => {
             timeAdvantage < 0 ? `具備 ${Math.abs(timeAdvantage).toFixed(3)}s 時間優勢` : timeAdvantage > 0 ? `存在 ${timeAdvantage.toFixed(3)}s 時間劣勢` : `時間差 0.000s`
           }。累積負擔(WeightRD) ${weightRD.toFixed(1)}，標準區間(${benchmark.toFixed(1)})。`,
           oddsHistory,
+          estWinInvestment,
+          estQINInvestment,
+          moneyAlert,
         }
       })
 
@@ -603,6 +657,7 @@ export const handler: Handler = async (event) => {
         meetingType: meeting.meetingType === "N" ? "夜賽" : "日賽",
         topPick,
         predictions,
+        pools: poolsData,
         summary: summaryText,
         aiSummary: summaryText,
         confidence: topPick.winProbModel >= 0.18 ? "HIGH" : topPick.winProbModel >= 0.1 ? "MEDIUM" : "LOW",
