@@ -360,8 +360,18 @@ export const handler: Handler = async (event) => {
       const meeting = meetings.find((m: any) => m.venueCode === venueCode)
       if (!meeting) return json(404, { error: `Meeting for venue ${venueCode} not found` })
 
-      const race = meeting.races?.find((r: any) => r.no === raceNo || r.no === String(raceNo))
-      if (!race) return json(404, { error: "未找到賽事" })
+      const race = meeting.races?.find((r: any) => {
+        const rNo = parseInt(String(r.no), 10)
+        return rNo === raceNo
+      })
+
+      if (!race) {
+        const available = meeting.races?.map((r: any) => parseInt(String(r.no), 10)) ?? []
+        return json(404, {
+          error: `Race ${raceNo} not found in ${venueCode}`,
+          availableRaces: available,
+        })
+      }
 
       // ── Step 1: WIN / PLA odds ─────────────────────────────────────────
       let oddsMap: Record<string, string> = {}
@@ -472,7 +482,14 @@ export const handler: Handler = async (event) => {
       }
 
       // ── Build predictions ──────────────────────────────────────────────
-      const runners = race.runners || []
+      const runners: any[] = race.runners ?? []
+      if (runners.length === 0) {
+        return json(404, {
+          error: `No runners found for Race ${raceNo} — field not yet declared`,
+          raceNumber: raceNo,
+          raceName: race.raceName_ch ?? race.raceName_en ?? `Race ${raceNo}`,
+        })
+      }
       const distance = Number(race.distance) || 1200
       const isSprint = distance <= 1200
       const isWet =
