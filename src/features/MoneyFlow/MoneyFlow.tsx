@@ -380,12 +380,16 @@ function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; total
 
 // ─── Sub-component: RaceStructureBadge ───────────────────────────────────────
 function RaceStructureBadge({ oddsStructure }: { oddsStructure: OddsStructure }) {
-  const { raceTypeCode, raceType, od1, od2, od3, coldSignal, description, tip, topBanker, coldCandidates } = oddsStructure
-
-  const colorMap = {
-    BANKER:  { bg: "bg-blue-950/50",  border: "border-blue-600/50",  badge: "bg-blue-700 text-blue-100",  icon: "🏦" },
-    SPLIT:   { bg: "bg-amber-950/40", border: "border-amber-600/40", badge: "bg-amber-700 text-amber-100", icon: "⚔️" },
-    CHAOTIC: { bg: "bg-red-950/40",   border: "border-red-600/40",   badge: "bg-red-700 text-red-100",     icon: "🌪️" },
+  const { 
+    raceTypeCode, raceType, od1, od2, od3, coldSignal, 
+    description, tip, topBanker, coldCandidates, 
+    oddsPattern  // 新增：賠率結構模式 
+  } = oddsStructure 
+  
+  const colorMap = { 
+    BANKER: { bg: "bg-blue-950/50", border: "border-blue-600/50", badge: "bg-blue-700 text-blue-100", icon: "🏦" }, 
+    SPLIT: { bg: "bg-amber-950/40", border: "border-amber-600/40", badge: "bg-amber-700 text-amber-100", icon: "⚔️" }, 
+    CHAOTIC: { bg: "bg-red-950/40", border: "border-red-600/40", badge: "bg-red-700 text-red-100", icon: "🌪️" },
     UNKNOWN: { bg: "bg-slate-900",    border: "border-slate-700",    badge: "bg-slate-700 text-slate-300",  icon: "❓" },
   }
   const c = colorMap[raceTypeCode]
@@ -397,6 +401,11 @@ function RaceStructureBadge({ oddsStructure }: { oddsStructure: OddsStructure })
         <span className={`text-xs px-2 py-1 rounded-full font-bold ${c.badge}`}>
           {raceType}
         </span>
+        {oddsPattern && (
+          <span className="text-xs bg-indigo-900/60 text-indigo-300 px-2 py-1 rounded-full font-semibold">
+            {oddsPattern}
+          </span>
+        )}
         <span className="text-xs text-slate-400">
           首選賠率 <span className="text-slate-200 font-mono">{od1}</span>
           {" "}次選 <span className="text-slate-200 font-mono">{od2}</span>
