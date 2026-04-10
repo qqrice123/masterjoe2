@@ -1,0 +1,5 @@
+{
+  "name": "HK Racing AI",
+  "description": "AI-powered Hong Kong horse racing predictions using live HKJC data",
+  "requestFramePermissions": []
+}
