@@ -27,10 +27,16 @@ async function fetchMeetings(): Promise<Meeting[]> {
   return res.json()
 }
 
-async function fetchRaceDetail(venueCode: string, raceNo: number) {
-  const res = await fetch(`${API}/predict/${venueCode}/${raceNo}`)
-  if (!res.ok) throw new Error("Failed to fetch race")
-  return res.json()
+async function fetchRaceDetail(venueCode: string, raceNo: number) { 
+  const res = await fetch(`${API}/predict/${venueCode}/${raceNo}`) 
+  if (!res.ok) { 
+    const body = await res.json().catch(() => ({})) 
+    const err: any = new Error(body.error ?? `HTTP ${res.status}`) 
+    err.status = res.status 
+    err.availableRaces = body.availableRaces   // ← use to jump to valid race 
+    throw err 
+  } 
+  return res.json() 
 }
 
 // ── Tab config ─────────────────────────────────────────────────────────────
@@ -76,20 +82,26 @@ export default function App() {
   }, [meetings, venueCode])
 
   // Race detail (auto-refetch every 30s when autoRefresh is on)
-  const {
-    data: raceDetail,
-    isLoading: raceLoading,
-    isFetching,
-    refetch,
-    dataUpdatedAt,
-  } = useQuery({
-    queryKey: ["race", venueCode, raceNo],
-    queryFn: () => fetchRaceDetail(venueCode, raceNo),
-    enabled: !!venueCode && raceNo > 0,
-    refetchInterval: autoRefresh ? 30_000 : false,
-    staleTime: 25_000,
-    retry: 2,
-  })
+  const { 
+    data: raceDetail, 
+    isLoading: raceLoading, 
+    isFetching, 
+    isError, 
+    error: raceError, 
+    refetch, 
+    dataUpdatedAt, 
+  } = useQuery({ 
+    queryKey:  ["race", venueCode, raceNo], 
+    queryFn:   () => fetchRaceDetail(venueCode, raceNo), 
+    enabled:   !!venueCode && raceNo > 0, 
+    refetchInterval: autoRefresh ? 30_000 : false, 
+    staleTime: 25_000, 
+    retry: (count, err: any) => { 
+      // Don't retry 404s (race not found / no runners) 
+      if (err?.status === 404) return false 
+      return count < 2 
+    }, 
+  }) 
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString("zh-HK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -248,11 +260,43 @@ export default function App() {
         )}
 
         {/* Tab Content */}
-        {activeTab === "analysis" && (
-          <AnalyticsDashboard
-            raceDetail={raceDetail}
-            isLoading={raceLoading}
-          />
+        {activeTab === "analysis" && ( 
+          <> 
+            {isError && ( 
+              <div className="flex flex-col items-center justify-center py-12 space-y-3"> 
+                <span className="text-3xl">⚠️</span> 
+                <p className="text-sm text-red-400"> 
+                  {(raceError as any)?.message ?? "無法載入賽事資料"} 
+                </p> 
+                { /* Jump buttons if server told us which races are available */ } 
+                {(raceError as any)?.availableRaces?.length > 0 && ( 
+                  <div className="flex flex-wrap gap-2 mt-2"> 
+                    <span className="text-xs text-slate-500">可用場次：</span> 
+                    {((raceError as any).availableRaces as number[]).map(n => ( 
+                      <button 
+                        key={n} 
+                        onClick={() => setRaceNo(n)} 
+                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 
+                                   text-slate-200 text-xs rounded-lg transition-colors" 
+                      > 
+                        第 {n} 場 
+                      </button> 
+                    ))} 
+                  </div> 
+                )} 
+                <button 
+                  onClick={() => refetch()} 
+                  className="text-xs text-blue-400 hover:underline mt-1" 
+                > 
+                  重試 
+                </button> 
+              </div> 
+            )} 
+        
+            {!isError && ( 
+              <AnalyticsDashboard raceDetail={raceDetail} isLoading={raceLoading} /> 
+            )} 
+          </> 
         )}
 
         {activeTab === "moneyflow" && (
