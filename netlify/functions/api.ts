@@ -7,10 +7,10 @@ const horseAPI = new HorseRacingAPI()
 const hkjcClient = new HKJCClient()
 
 const STAT_WIN_RATES: Record<string, Record<string, number>> = {
-  çŸ­é€”æ­£å¸¸åœ°: { "<119": 50.0, "120-124": 57.8, "125-129": 25.0, "130+": 57.1 },
-  çŸ­é€”è®ŠåŒ–åœ°: { "<119": 27.27, "120-124": 48.0, "125-129": 46.67, "130+": 57.14 },
-  ä¸­é•·é€”æ­£å¸¸åœ°: { "<119": 37.5, "120-124": 46.2, "125-129": 54.5, "130+": 60.0 },
-  ä¸­é•·é€”è®ŠåŒ–åœ°: { "<119": 37.5, "120-124": 36.11, "125-129": 40.54, "130+": 37.5 },
+  短途正常地: { "<119": 50.0, "120-124": 57.8, "125-129": 25.0, "130+": 57.1 },
+  短途變化地: { "<119": 27.27, "120-124": 48.0, "125-129": 46.67, "130+": 57.14 },
+  中長途正常地: { "<119": 37.5, "120-124": 46.2, "125-129": 54.5, "130+": 60.0 },
+  中長途變化地: { "<119": 37.5, "120-124": 36.11, "125-129": 40.54, "130+": 37.5 },
 }
 
 const WEIGHTRD_BENCHMARKS: Record<number, number> = {
@@ -54,9 +54,9 @@ function getRatingMax(raceClass: string): number {
 }
 
 const AGE_FACTORS: Record<string, number> = {
-  "2-3æ­²": 0.8,
-  "4-5æ­²": 1.0,
-  "6-10æ­²": 0.9,
+  "2-3歲": 0.8,
+  "4-5歲": 1.0,
+  "6-10歲": 0.9,
 }
 
 function estimateAge(code: string): number {
@@ -145,22 +145,22 @@ function getDynamicWeights(distance: number, raceClass: string) {
 }
 
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// ODDS STRUCTURE ANALYSIS â€” based on Chinese racing analytics methodology
-// Classifies each race into é¦¬è†½å±€ / åˆ†ç«‹å±€ / æ··äº‚å±€ using favorite odds tiers
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════════
+// ODDS STRUCTURE ANALYSIS — based on Chinese racing analytics methodology
+// Classifies each race into 馬膽局 / 分立局 / 混亂局 using favorite odds tiers
+// ══════════════════════════════════════════════════════════════════════════════
 
 interface OddsStructureResult {
-  raceType: "é¦¬è†½å±€" | "åˆ†ç«‹å±€" | "æ··äº‚å±€" | "æœªèƒ½åˆ¤æ–·"
+  raceType: "馬膽局" | "分立局" | "混亂局" | "未能判斷"
   raceTypeCode: "BANKER" | "SPLIT" | "CHAOTIC" | "UNKNOWN"
   od1: number          // favorite odds
   od2: number          // 2nd favorite odds
   od3: number          // 3rd favorite odds
   od4: number          // 4th favorite odds
-  hotCount: number     // horses with winOdds â‰¤ 10
+  hotCount: number     // horses with winOdds ≤ 10
   coldSignal: boolean  // true = likely cold race result
   qinFocus: "od1_group" | "od2_od3_group" | "spread" | "unknown"
-  topBanker: string | null   // runnerNumber of banker (if é¦¬è†½å±€)
+  topBanker: string | null   // runnerNumber of banker (if 馬膽局)
   coldCandidates: (string | number)[]  // runner numbers worth watching for cold
   description: string
   tip: string
@@ -171,18 +171,18 @@ function analyzeOddsStructure(
   isPreRace: boolean
 ): OddsStructureResult {
   const NA: OddsStructureResult = {
-    raceType: "æœªèƒ½åˆ¤æ–·", raceTypeCode: "UNKNOWN",
+    raceType: "未能判斷", raceTypeCode: "UNKNOWN",
     od1: 0, od2: 0, od3: 0, od4: 0,
     hotCount: 0, coldSignal: false,
     qinFocus: "unknown", topBanker: null, coldCandidates: [],
-    description: isPreRace ? "è³ çŽ‡æœªé–‹ç›¤ï¼Œæš«ç„¡æ³•åˆ¤æ–·è³½å±€çµæ§‹ã€‚" : "è³½é§’ä¸è¶³ï¼Œç„¡æ³•åˆ¤æ–·è³½å±€çµæ§‹ã€‚",
-    tip: "ç­‰å¾…è³ çŽ‡é–‹ç›¤å¾Œåˆ†æžã€‚",
+    description: isPreRace ? "賠率未開盤，暫無法判斷賽局結構。" : "賽駒不足，無法判斷賽局結構。",
+    tip: "等待賠率開盤後分析。",
   }
 
   const withOdds = predictions
     .filter(
       (p) =>
-        p.winOdds !== "â€”" &&
+        p.winOdds !== "—" &&
         !isNaN(parseFloat(String(p.winOdds))) &&
         !String(p.runnerNumber).startsWith("R")
     )
@@ -197,7 +197,7 @@ function analyzeOddsStructure(
 
   const hotCount = withOdds.filter((p) => parseFloat(String(p.winOdds)) <= 10).length
 
-  // Candidate cold horses = those ranked 3rdâ€“6th by odds (od3 ~ od6 range)
+  // Candidate cold horses = those ranked 3rd–6th by odds (od3 ~ od6 range)
   const coldCandidates = withOdds
     .slice(2, 6)
     .filter((p) => parseFloat(String(p.winOdds)) >= 6)
@@ -205,56 +205,56 @@ function analyzeOddsStructure(
 
   const topBanker = withOdds[0].runnerNumber
 
-  // â”€â”€ Rule 1: é¦¬è†½å±€ â”€â”€ od1 â‰¤ 3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Rule 1: 馬膽局 ── od1 ≤ 3 ───────────────────────────────────────────
   if (od1 <= 3) {
-    let tip = `å¼·é¦¬è†½ #${topBanker}ï¼ˆ${od1}ï¼‰å­˜åœ¨ã€‚é€£è´(Q)èšç„¦é¦–é¸é…æ­æ¬¡é¸ã€‚`
+    let tip = `強馬膽 #${topBanker}（${od1}）存在。連贏(Q)聚焦首選配搭次選。`
     let qin: OddsStructureResult["qinFocus"] = "od1_group"
 
-    // Special: od1 < 3 AND od2 >= 4 â†’ banker dominates, Q almost certainly includes od1
+    // Special: od1 < 3 AND od2 >= 4 → banker dominates, Q almost certainly includes od1
     if (od2 >= 4) {
-      tip = `è¶…å¼·é¦¬è†½ #${topBanker}ï¼ˆ${od1}ï¼‰é…æ­æ¬¡é¸ï¼ˆ${od2}ï¼‰ã€‚Qå¹¾ä¹Žç¢ºå®šåŒ…å«é¦–é¸ï¼Œå®œä»¥é¦–é¸ç‚ºè†½é€£æŽ¥3è‡³4åŒ¹è…³ã€‚`
+      tip = `超強馬膽 #${topBanker}（${od1}）配搭次選（${od2}）。Q幾乎確定包含首選，宜以首選為膽連接3至4匹腳。`
     }
 
     return {
-      raceType: "é¦¬è†½å±€", raceTypeCode: "BANKER",
+      raceType: "馬膽局", raceTypeCode: "BANKER",
       od1, od2, od3, od4, hotCount,
       coldSignal: false,
       qinFocus: qin,
       topBanker: String(topBanker),
       coldCandidates: [],
-      description: `é¦¬è†½å±€ï¼šè¶…ç­é¦¬è†½å­˜åœ¨ï¼ˆé¦–é¸è³ çŽ‡ ${od1}ï¼‰ï¼Œç†±é–€é›†ä¸­ï¼Œè³½æžœåå‘ç†±é–€ä¸»å°Žã€‚`,
+      description: `馬膽局：超班馬膽存在（首選賠率 ${od1}），熱門集中，賽果偏向熱門主導。`,
       tip,
     }
   }
 
-  // â”€â”€ Rule 3: æ··äº‚å±€ â”€â”€ od1 â‰ˆ 4ï¼ˆ3.5 ~ 5.5ï¼‰â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Rule 3: 混亂局 ── od1 ≈ 4（3.5 ~ 5.5）──────────────────────────────
   if (od1 >= 3.5 && od1 <= 5.5) {
-    const subColdSignal = od2 >= 4 // both od1 & od2 high â†’ even more chaotic
+    const subColdSignal = od2 >= 4 // both od1 & od2 high → even more chaotic
     return {
-      raceType: "æ··äº‚å±€", raceTypeCode: "CHAOTIC",
+      raceType: "混亂局", raceTypeCode: "CHAOTIC",
       od1, od2, od3, od4, hotCount,
       coldSignal: true,
       qinFocus: "od2_od3_group",
       topBanker: null,
       coldCandidates,
-      description: `æ··äº‚å±€ï¼šé¦–é¸è³ çŽ‡ç´„4ï¼ˆ${od1}ï¼‰${subColdSignal ? `ï¼Œæ¬¡é¸åŒæ¨£åé«˜ï¼ˆ${od2}ï¼‰` : ""}ã€‚Qå…¨åœ¨é¦–é¸å‡ºç¾æ©ŸçŽ‡åä½Žï¼Œå†·è³½æžœä¿¡è™Ÿå¼·çƒˆã€‚`,
-      tip: `âš ï¸ å†·è³½æžœé«˜å±å ´ï¼šèªçœŸæ¯”è¼ƒæ¬¡é¸ï¼ˆ${od2}ï¼‰è‡³ç¬¬å››é¸ï¼ˆ${od4}ï¼‰ä¸­çš„å†·é¦¬ï¼Œç‰¹åˆ¥ç•™æ„å¹´è¼•è³ªæ–°é¦¬ã€é…ä»¶æ”¹è®Šé¦¬ã€è½‰é¦¬æˆ¿é¦¬ã€‚`,
+      description: `混亂局：首選賠率約4（${od1}）${subColdSignal ? `，次選同樣偏高（${od2}）` : ""}。Q全在首選出現機率偏低，冷賽果信號強烈。`,
+      tip: `⚠️ 冷賽果高危場：認真比較次選（${od2}）至第四選（${od4}）中的冷馬，特別留意年輕質新馬、配件改變馬、轉馬房馬。`,
     }
   }
 
-  // â”€â”€ Rule 2: åˆ†ç«‹å±€ â”€â”€ od1 > 5.5 OR (od2 â‰¥ 4 with stratification) â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Rule 2: 分立局 ── od1 > 5.5 OR (od2 ≥ 4 with stratification) ────────
   if (od2 >= 4) {
     const bothHigh = od1 >= 4 && od2 >= 4
     const coldSignal = bothHigh
     const qin: OddsStructureResult["qinFocus"] = bothHigh ? "spread" : "od1_group"
     const desc = bothHigh
-      ? `åˆ†ç«‹å±€ï¼ˆæ··äº‚å‚¾å‘ï¼‰ï¼šé¦–é¸ï¼ˆ${od1}ï¼‰èˆ‡æ¬¡é¸ï¼ˆ${od2}ï¼‰è³ çŽ‡å·®ç•°ä¸å¤§ï¼Œod1åˆ†å±¤è¢«od2ç“¦è§£ï¼Œæ•´é«”å±€é¢ä»æ··äº‚ï¼Œå†·é¦¬æ©ŸçŽ‡ä¸Šå‡ã€‚`
-      : `åˆ†ç«‹å±€ï¼šç†±é–€å­˜åœ¨ä¸€å®šåˆ†å±¤ï¼ˆé¦–é¸ ${od1}ï¼Œæ¬¡é¸ ${od2}ï¼‰ï¼ŒQæœ‰è¼ƒé«˜æ¦‚çŽ‡åœ¨é¦–é¸çµ„åˆ¥ä¸­å‡ºç¾ã€‚`
+      ? `分立局（混亂傾向）：首選（${od1}）與次選（${od2}）賠率差異不大，od1分層被od2瓦解，整體局面仍混亂，冷馬機率上升。`
+      : `分立局：熱門存在一定分層（首選 ${od1}，次選 ${od2}），Q有較高概率在首選組別中出現。`
     const tip = bothHigh
-      ? `od1èˆ‡od2å‡â‰¥4ï¼Œå†·é¦¬çµæžœæ©ŸçŽ‡é«˜ã€‚å¯è€ƒæ…®åœ¨od3ï¼ˆ${od3}ï¼‰é™„è¿‘å°‹æ‰¾å†·é¦¬é…æ­ã€‚`
-      : `Qèšç„¦é¦–é¸#${topBanker}é…æ­2è‡³3åŒ¹æ¬¡é¸ï¼Œç†±é–€ç«¶çˆ­å¤šï¼Œæ³¨ç¢¼å®œåˆ†æ•£ã€‚`
+      ? `od1與od2均≥4，冷馬結果機率高。可考慮在od3（${od3}）附近尋找冷馬配搭。`
+      : `Q聚焦首選#${topBanker}配搭2至3匹次選，熱門競爭多，注碼宜分散。`
     return {
-      raceType: "åˆ†ç«‹å±€", raceTypeCode: "SPLIT",
+      raceType: "分立局", raceTypeCode: "SPLIT",
       od1, od2, od3, od4, hotCount,
       coldSignal,
       qinFocus: qin,
@@ -265,16 +265,16 @@ function analyzeOddsStructure(
     }
   }
 
-  // Fallback: od1 > 5, od2 < 4 â€” still a split but moderate
+  // Fallback: od1 > 5, od2 < 4 — still a split but moderate
   return {
-    raceType: "åˆ†ç«‹å±€", raceTypeCode: "SPLIT",
+    raceType: "分立局", raceTypeCode: "SPLIT",
     od1, od2, od3, od4, hotCount,
     coldSignal: false,
     qinFocus: "od1_group",
     topBanker: String(topBanker),
     coldCandidates: [],
-    description: `åˆ†ç«‹å±€ï¼šç†±é–€ç«¶çˆ­é©ä¸­ï¼ˆé¦–é¸ ${od1}ï¼Œæ¬¡é¸ ${od2}ï¼‰ï¼Œç†±é–€ç›¸çˆ­æ•¸é‡ ${hotCount} åŒ¹ã€‚`,
-    tip: `Qä»¥é¦–é¸#${topBanker}ç‚ºä¸»è»¸ï¼Œé…æ­2è‡³3åŒ¹æ¬¡é¸ï¼Œæ³¨æ„ç†±é–€è¼ƒå¤šæ™‚æ´¾å½©åä½Žï¼Œå­å½ˆå®œç¯€çœã€‚`,
+    description: `分立局：熱門競爭適中（首選 ${od1}，次選 ${od2}），熱門相爭數量 ${hotCount} 匹。`,
+    tip: `Q以首選#${topBanker}為主軸，配搭2至3匹次選，注意熱門較多時派彩偏低，子彈宜節省。`,
   }
 }
 
@@ -300,13 +300,13 @@ export const handler: Handler = async (event) => {
 
     if (method !== "GET") return json(405, { error: "Method not allowed" })
 
-    // â”€â”€ /meetings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── /meetings ──────────────────────────────────────────────────────────
     if (pathname === "/meetings") {
       try {
         const meetings = await horseAPI.getActiveMeetings()
         const formattedMeetings = meetings.map((m: any) => ({
           id: m.id,
-          venue: m.venueCode === "HV" ? "è·‘é¦¬åœ°" : m.venueCode === "ST" ? "æ²™ç”°" : m.venueCode,
+          venue: m.venueCode === "HV" ? "跑馬地" : m.venueCode === "ST" ? "沙田" : m.venueCode,
           venueCode: m.venueCode,
           date: m.date,
           status: m.status,
@@ -319,7 +319,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // â”€â”€ /races â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── /races ─────────────────────────────────────────────────────────────
     if (pathname === "/races") {
       try {
         const meetings = await horseAPI.getAllRaces()
@@ -330,9 +330,9 @@ export const handler: Handler = async (event) => {
               const meetingRaces = meeting.races.map((r: any) => ({
                 id: r.id || `${meeting.venueCode}_${r.no}`,
                 raceNumber: r.no,
-                raceName: r.raceName_ch || r.raceName_en || `ç¬¬ ${r.no} å ´`,
+                raceName: r.raceName_ch || r.raceName_en || `第 ${r.no} 場`,
                 distance: r.distance,
-                course: r.raceCourse?.description_ch || r.raceCourse?.description_en || "è‰åœ°",
+                course: r.raceCourse?.description_ch || r.raceCourse?.description_en || "草地",
                 raceClass: r.raceClass_ch || r.raceClass_en || "",
                 runners: r.wageringFieldSize || r.runners?.length || 0,
                 meetingId: meeting.id,
@@ -349,7 +349,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // â”€â”€ /predict/:venue/:raceNo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── /predict/:venue/:raceNo ────────────────────────────────────────────
     const predictMatch = pathname.match(/^\/predict\/([^/]+)\/(\d+)/)
     if (predictMatch) {
       const venueCode = predictMatch[1]
@@ -373,7 +373,7 @@ export const handler: Handler = async (event) => {
         })
       }
 
-      // â”€â”€ Step 1: WIN / PLA odds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Step 1: WIN / PLA odds ─────────────────────────────────────────
       let oddsMap: Record<string, string> = {}
       let placeOddsMap: Record<string, string> = {}
       try {
@@ -398,7 +398,7 @@ export const handler: Handler = async (event) => {
         }
       } catch { /* ignore */ }
 
-      // â”€â”€ Step 2: QIN odds (for per-horse aggregation) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Step 2: QIN odds (for per-horse aggregation) ───────────────────
       let qinOddsMap: Record<string, number> = {}
       try {
         const qinOddsResponse: any = await hkjcClient.request(horseOddsQuery, {
@@ -418,7 +418,7 @@ export const handler: Handler = async (event) => {
         }
       } catch { /* ignore */ }
 
-      // â”€â”€ Step 3: Pool investment totals (horsePoolQuery) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Step 3: Pool investment totals (horsePoolQuery) ────────────────
       let poolsData = { WIN: 0, PLA: 0, QIN: 0, QPL: 0, DBL: 0 }
       let isPreRace = true
       try {
@@ -440,7 +440,7 @@ export const handler: Handler = async (event) => {
         if (poolsData.WIN > 0 || poolsData.QIN > 0) isPreRace = false
       } catch { /* ignore */ }
 
-      // â”€â”€ Step 4: Historical odds from Neon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Step 4: Historical odds from Neon ─────────────────────────────
       let historicalOddsMap: Record<string, number> = {}
       let min30OddsMap: Record<string, number> = {}
       if (process.env.DATABASE_URL) {
@@ -481,11 +481,11 @@ export const handler: Handler = async (event) => {
         }
       }
 
-      // â”€â”€ Build predictions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Build predictions ──────────────────────────────────────────────
       const runners: any[] = race.runners ?? []
       if (runners.length === 0) {
         return json(404, {
-          error: `No runners found for Race ${raceNo} â€” field not yet declared`,
+          error: `No runners found for Race ${raceNo} — field not yet declared`,
           raceNumber: raceNo,
           raceName: race.raceName_ch ?? race.raceName_en ?? `Race ${raceNo}`,
         })
@@ -496,8 +496,8 @@ export const handler: Handler = async (event) => {
       const goingStr = ((race.go_ch ?? '') + (race.go_en ?? '')).toUpperCase()
       const isWet = goingStr.includes("SOFT") || goingStr.includes("YIELDING")
       
-      const groundKey = isWet ? "è®ŠåŒ–åœ°" : "æ­£å¸¸åœ°"
-      const raceTypeKey = isSprint ? "çŸ­é€”" : "ä¸­é•·é€”"
+      const groundKey = isWet ? "變化地" : "正常地"
+      const raceTypeKey = isSprint ? "短途" : "中長途"
       const statCategory = `${raceTypeKey}${groundKey}`
 
       const classLimit = getRatingMax(race.raceClass_en || race.raceClass_ch || "4")
@@ -515,7 +515,7 @@ export const handler: Handler = async (event) => {
 
           const last3Form = r.last6run
             ? r.last6run.split(/[/\- ]/).slice(0, 3).join("/")
-            : "â€”"
+            : "—"
 
         const horseCode = r.horse?.code || ""
         const age = estimateAge(horseCode)
@@ -535,17 +535,17 @@ export const handler: Handler = async (event) => {
         let ageStage = "veteran"
         let ageStageLabel = ""
         if (age <= 3) {
-          ageBonus = AGE_FACTORS["2-3æ­²"]
+          ageBonus = AGE_FACTORS["2-3歲"]
           ageStage = "risingstar"
-          ageStageLabel = "æ½›åŠ›æ–°æ˜Ÿ"
+          ageStageLabel = "潛力新星"
         } else if (age <= 5) {
-          ageBonus = AGE_FACTORS["4-5æ­²"]
+          ageBonus = AGE_FACTORS["4-5歲"]
           ageStage = "primewarrior"
-          ageStageLabel = "å·”å³°æˆ°å°‡"
+          ageStageLabel = "巔峰戰將"
         } else {
-          ageBonus = AGE_FACTORS["6-10æ­²"]
+          ageBonus = AGE_FACTORS["6-10歲"]
           ageStage = "veteran"
-          ageStageLabel = "æ²™å ´è€å°‡"
+          ageStageLabel = "沙場老將"
         }
 
         let c = 0.055
@@ -557,23 +557,22 @@ export const handler: Handler = async (event) => {
         const deltaTBase = (deltaW / 2) * c
 
         let fGround = 1.0
-        const goingStr = (race.go_ch || race.go_en || "").toUpperCase()
-        if (goingStr.includes("å¤§çˆ›åœ°") || goingStr.includes("çˆ›") || goingStr.includes("HEAVY")) fGround = 1.3
+        if (goingStr.includes("大爛地") || goingStr.includes("爛") || goingStr.includes("HEAVY")) fGround = 1.3
         else if (
-          goingStr.includes("è»Ÿ") ||
+          goingStr.includes("軟") ||
           goingStr.includes("SOFT") ||
           goingStr.includes("YIELDING") ||
-          goingStr.includes("é»")
+          goingStr.includes("黏")
         )
           fGround = 1.15
         else if (
-          goingStr.includes("å¥½è‡³å¿«") ||
-          (goingStr.includes("å¥½") && goingStr.includes("å¿«")) ||
+          goingStr.includes("好至快") ||
+          (goingStr.includes("好") && goingStr.includes("快")) ||
           goingStr.includes("GOOD TO FIRM") ||
           goingStr.includes("GOOD/FIRM")
         )
           fGround = 1.0
-        else if (goingStr === "å¥½åœ°" || goingStr.includes("å¥½") || goingStr.includes("GOOD")) fGround = 1.05
+        else if (goingStr === "好地" || goingStr.includes("好") || goingStr.includes("GOOD")) fGround = 1.05
 
         let fStyle = 1.0
         const runNums = (r.last6run ?? "").split(/[/\- ]/).map(Number).filter((n: number) => !isNaN(n) && n > 0)
@@ -586,10 +585,10 @@ export const handler: Handler = async (event) => {
 
         const conditionMult = getConditionMult(last3Form)
         let conditionLabel = ""
-        if (conditionMult >= 1.1) conditionLabel = "ä¸Šå‡ä¸­"
-        else if (conditionMult >= 1.0) conditionLabel = "ç‹€æ…‹ç©©"
-        else if (conditionMult <= 0.8) conditionLabel = "ç‹€æ…‹å·®"
-        else conditionLabel = "ç•¥é™"
+        if (conditionMult >= 1.1) conditionLabel = "上升中"
+        else if (conditionMult >= 1.0) conditionLabel = "狀態穩"
+        else if (conditionMult <= 0.8) conditionLabel = "狀態差"
+        else conditionLabel = "略降"
 
         const { wStat, wBurden, wRating, wAge, wTime } = dynamicWeights
         const rawScore =
@@ -609,14 +608,14 @@ export const handler: Handler = async (event) => {
         else if (rawScore >= 40) grade = "C"
 
         const riskFactors: string[] = []
-        if (weight > 130) riskFactors.push("è² ç£…éŽé‡(>130)")
-        if (conditionMult < 0.9) riskFactors.push("ç‹€æ…‹ä¸‹æ»‘")
-        if (weight / horseWeight > 0.13) riskFactors.push("è² ç£…é«”é‡æ¯”ç•°å¸¸(>13%)")
-        if (age >= 8 && conditionMult < 1.0) riskFactors.push("è€é½¡é€€åŒ–")
+        if (weight > 130) riskFactors.push("負磅過重(>130)")
+        if (conditionMult < 0.9) riskFactors.push("狀態下滑")
+        if (weight / horseWeight > 0.13) riskFactors.push("負磅體重比異常(>13%)")
+        if (age >= 8 && conditionMult < 1.0) riskFactors.push("老齡退化")
 
-        const displayOdds = hasOdds ? winOdds : "â€”"
+        const displayOdds = hasOdds ? winOdds : "—"
         const placeOddsStr = placeOddsMap[r.no.padStart(2, "0")] || placeOddsMap[r.no] || ""
-        const placeOdds = placeOddsStr ? parseFloat(placeOddsStr) : "â€”"
+        const placeOdds = placeOddsStr ? parseFloat(placeOddsStr) : "—"
 
         const weightRatio = (weight / horseWeight) * 100
         const weightD = weight * distance
@@ -626,20 +625,20 @@ export const handler: Handler = async (event) => {
           !r.no ||
           isNaN(displayRunnerNumber as number) ||
           String(r.no).toLowerCase().includes("standby") ||
-          String(r.no).includes("å¾Œå‚™")
+          String(r.no).includes("後備")
         ) {
           const match = String(r.no || "").match(/\d+/)
           displayRunnerNumber = match ? `R${match[0]}` : "R"
         }
 
-        // â”€â”€ Odds history â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Odds history ──────────────────────────────────────────────────
         const oddsHistory: any = { overnight: null, min30: null, min15: null, current: displayOdds }
         const runnerKey = String(displayRunnerNumber).replace(/\D/g, "").padStart(2, "0")
         if (historicalOddsMap[runnerKey]) oddsHistory.min15 = historicalOddsMap[runnerKey]
         if (min30OddsMap[runnerKey]) oddsHistory.min30 = min30OddsMap[runnerKey]
 
         // Fallback: deterministic drift when no Neon data yet
-        if (!oddsHistory.min15 && displayOdds !== "â€”") {
+        if (!oddsHistory.min15 && displayOdds !== "—") {
           const oddsNum = parseFloat(String(displayOdds))
           if (!isNaN(oddsNum)) {
             const num =
@@ -651,7 +650,7 @@ export const handler: Handler = async (event) => {
           }
         }
 
-        // â”€â”€ Pool reverse-engineering (pre-race uses 28M/20M estimate) â”€â”€â”€â”€â”€
+        // ── Pool reverse-engineering (pre-race uses 28M/20M estimate) ─────
         const DEDUCT = 0.825
         const WIN_BASE = isPreRace ? 28_000_000 : poolsData.WIN
         const QIN_BASE = isPreRace ? 20_000_000 : poolsData.QIN
@@ -671,9 +670,9 @@ export const handler: Handler = async (event) => {
         })
         const estQINInvestment = qinSum > 0 ? Math.round(qinSum) : null
 
-        // â”€â”€ Large-bet detection (requires overnight odds in Neon) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Large-bet detection (requires overnight odds in Neon) ─────────
         let moneyAlert: "large_bet" | "steady" | "drifting" | undefined
-        if (oddsHistory.overnight && displayOdds !== "â€”") {
+        if (oddsHistory.overnight && displayOdds !== "—") {
           const ov = parseFloat(String(oddsHistory.overnight))
           const cu = parseFloat(String(displayOdds))
           if (!isNaN(ov) && !isNaN(cu)) {
@@ -685,8 +684,8 @@ export const handler: Handler = async (event) => {
         return [{
           runnerNumber: displayRunnerNumber,
           runnerName: r.name_ch || r.name_en,
-          jockey: r.jockey?.name_ch || r.jockey?.name_en || "æœªçŸ¥",
-          trainer: r.trainer?.name_ch || r.trainer?.name_en || "æœªçŸ¥",
+          jockey: r.jockey?.name_ch || r.jockey?.name_en || "未知",
+          trainer: r.trainer?.name_ch || r.trainer?.name_en || "未知",
           draw: parseInt(r.barrierDrawNumber) || 0,
           weight,
           winProbability: 0,
@@ -719,13 +718,13 @@ export const handler: Handler = async (event) => {
           diffProb: 0,
           expectedValue: 0,
           kellyFraction: 0,
-          analysis: `ã€${grade}ç´šã€‘ç¶œåˆè©•åˆ† ${(score / 100).toFixed(2)} (A:0.8+, B:0.6+)ã€‚${
+          analysis: `【${grade}級】綜合評分 ${(score / 100).toFixed(2)} (A:0.8+, B:0.6+)。${
             timeAdvantage < 0
-              ? `å…·å‚™ ${Math.abs(timeAdvantage).toFixed(3)}s æ™‚é–“å„ªå‹¢`
+              ? `具備 ${Math.abs(timeAdvantage).toFixed(3)}s 時間優勢`
               : timeAdvantage > 0
-              ? `å­˜åœ¨ ${timeAdvantage.toFixed(3)}s æ™‚é–“åŠ£å‹¢`
-              : `æ™‚é–“å·® 0.000s`
-          }ã€‚ç´¯ç©è² æ“”(WeightRD) ${weightRD.toFixed(1)}ï¼Œæ¨™æº–å€é–“(${benchmark.toFixed(1)})ã€‚`,
+              ? `存在 ${timeAdvantage.toFixed(3)}s 時間劣勢`
+              : `時間差 0.000s`
+          }。累積負擔(WeightRD) ${weightRD.toFixed(1)}，標準區間(${benchmark.toFixed(1)})。`,
           oddsHistory,
           estWinInvestment,
           estQINInvestment,
@@ -738,19 +737,19 @@ export const handler: Handler = async (event) => {
           return [{
             runnerNumber: r?.no ?? '?',
             runnerName: r?.name_ch ?? r?.name_en ?? `Runner ${r?.no}`,
-            jockey: r?.jockey?.name_ch ?? r?.jockey?.name_en ?? 'â€”',
-            trainer: r?.trainer?.name_ch ?? r?.trainer?.name_en ?? 'â€”',
+            jockey: r?.jockey?.name_ch ?? r?.jockey?.name_en ?? '—',
+            trainer: r?.trainer?.name_ch ?? r?.trainer?.name_en ?? '—',
             draw: 0,
             weight: 120,
             winProbability: 0,
             placeProb: 0,
-            winOdds: "â€”",
-            placeOdds: "â€”",
+            winOdds: "—",
+            placeOdds: "—",
             score: 0,
             grade: "D",
             rating: 0,
             horseWeight: 1000,
-            last3Form: "â€”",
+            last3Form: "—",
             investmentLabel: "NONE",
             riskFactors: ["Error"],
             weightD: 0,
@@ -762,9 +761,9 @@ export const handler: Handler = async (event) => {
             ratingScore: 0,
             age: 5,
             ageStage: "unknown",
-            ageStageLabel: "æœªçŸ¥",
+            ageStageLabel: "未知",
             ageBonus: 1,
-            conditionLabel: "æœªçŸ¥",
+            conditionLabel: "未知",
             conditionMultiplier: 1,
             marketImpliedProb: 0,
             winProbModel: 0,
@@ -772,8 +771,8 @@ export const handler: Handler = async (event) => {
             diffProb: 0,
             expectedValue: 0,
             kellyFraction: 0,
-            analysis: "è§£æžéŒ¯èª¤",
-            oddsHistory: { overnight: null, min30: null, min15: null, current: "â€”" },
+            analysis: "解析錯誤",
+            oddsHistory: { overnight: null, min30: null, min15: null, current: "—" },
             estWinInvestment: null,
             estQINInvestment: null,
             moneyAlert: "steady",
@@ -782,7 +781,7 @@ export const handler: Handler = async (event) => {
         }
       })
 
-      // â”€â”€ Softmax win probability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Softmax win probability ────────────────────────────────────────
       const expScores = predictions.map((p: any) => Math.exp(p.score / 20))
       const totalExp = expScores.reduce((a: number, b: number) => a + b, 0)
 
@@ -792,7 +791,7 @@ export const handler: Handler = async (event) => {
         p.modelOdds = parseFloat((1 / p.winProbModel - 1).toFixed(1))
         p.diffProb = parseFloat((p.winProbModel - p.marketImpliedProb).toFixed(4))
 
-        if (p.winOdds !== "â€”") {
+        if (p.winOdds !== "—") {
           const winOddsNum = parseFloat(p.winOdds as string)
           p.expectedValue = parseFloat((p.winProbModel * winOddsNum - 1).toFixed(2))
           if (winOddsNum > 1) {
@@ -801,13 +800,13 @@ export const handler: Handler = async (event) => {
           }
         }
 
-        // â”€â”€ Combat advice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Combat advice ────────────────────────────────────────────────
         const diffPct = p.diffProb * 100
         let advice = ""
-        let combatStatus = "AVOID"
+        let combatStatus: "AVOID" | "SHADOW" | "CAUTION" | "GO" = "AVOID"
         const tieBreakerNotes: string[] = []
 
-        if (p.weightRD < benchmark * 0.97) tieBreakerNotes.push("WeightRDå„ªå‹¢")
+        if (p.weightRD < benchmark * 0.97) tieBreakerNotes.push("WeightRD優勢")
         const timeThreshold =
           (distance || 1200) <= 1200
             ? -0.1
@@ -816,44 +815,44 @@ export const handler: Handler = async (event) => {
             : (distance || 1200) <= 2000
             ? -0.3
             : -0.4
-        if (p.timeAdvantage < timeThreshold) tieBreakerNotes.push("æ™‚é–“å·®å„ªå‹¢")
-        if (p.ageBonus >= 1.0 && p.ageBonus < 1.05) tieBreakerNotes.push("å·”å³°æˆ°å°‡")
+        if (p.timeAdvantage < timeThreshold) tieBreakerNotes.push("時間差優勢")
+        if (p.ageBonus >= 1.0 && p.ageBonus < 1.05) tieBreakerNotes.push("巔峰戰將")
 
         const oddsDropping =
           p.oddsHistory.current != null &&
-          p.oddsHistory.current !== "â€”" &&
+          p.oddsHistory.current !== "—" &&
           p.oddsHistory.min15 != null &&
-          p.oddsHistory.min15 !== "â€”" &&
+          p.oddsHistory.min15 !== "—" &&
           parseFloat(String(p.oddsHistory.current)) < parseFloat(String(p.oddsHistory.min15))
-        if (oddsDropping) tieBreakerNotes.push("è³ çŽ‡ä¸‹è·Œ(å¸‚å ´è³‡é‡‘æµå…¥)")
+        if (oddsDropping) tieBreakerNotes.push("賠率下跌(市場資金流入)")
 
         const tb = tieBreakerNotes.length > 0 ? ` (+${tieBreakerNotes.join(", ")})` : ""
 
         if (diffPct >= -6 && diffPct <= -3) {
-          advice = `âš¡å¸‚å ´åå¥½ Qä½é—œæ³¨${tb}`
+          advice = `⚡市場偏好 Q位關注${tb}`
           combatStatus = "SHADOW"
         } else if (diffPct < -3) {
-          advice = "é¿å…æŠ•æ³¨ âš ï¸ (æ¨¡æ“¬å‹çŽ‡ < å¸‚å ´ï¼Œå¸‚å ´é«˜ä¼°æ­¤é¦¬)"
+          advice = "避免投注 ⚠️ (模擬勝率 < 市場，市場高估此馬)"
           combatStatus = "AVOID"
         } else if (diffPct > -3 && diffPct <= 0) {
-          advice = `âš ï¸è§€æœ› (å·®å€¼å¾®è² )${tb}`
+          advice = `⚠️觀望 (差值微負)${tb}`
           combatStatus = "AVOID"
         } else if (diffPct > 0 && diffPct < 3) {
-          advice = "ä¸æŠ•æ³¨ (å·®è· < 3% ä¸” EV åœ¨æŠ½æ°´å¾Œå¿…ç‚ºè² å€¼)"
+          advice = "不投注 (差距 < 3% 且 EV 在抽水後必為負值)"
           combatStatus = "AVOID"
         } else if (diffPct >= 3 && diffPct < 5) {
           if ((p.grade === "A" || p.grade === "B") && p.draw >= 1 && p.draw <= 6) {
-            advice = `æœ€å°æ³¨ç¢¼è©¦æ³¨æˆ–è€ƒæ…®ä½ç½®(Qä½) (å·®è· 3-5% ä¸”å…·å‚™ A/B ç´šèˆ‡1-6æª”ä½)${tb}`
+            advice = `最小注碼試注或考慮位置(Q位) (差距 3-5% 且具備 A/B 級與1-6檔位)${tb}`
             combatStatus = "CAUTION"
           } else {
-            advice = `æ”¹æŠ•ä½ç½®æˆ–è§€æœ› (å·®è· 3-5%ï¼Œç„¡æª”ä½/è©•ç´šå„ªå‹¢)${tb}`
+            advice = `改投位置或觀望 (差距 3-5%，無檔位/評級優勢)${tb}`
             combatStatus = "CAUTION"
           }
         } else if (diffPct >= 5) {
-          advice = `ç©æ¥µæŠ•æ³¨ â­â­â­ (å·®è· â‰¥ 5%ï¼Œå…·å‚™æ­£æœŸæœ›å€¼)${tb}`
+          advice = `積極投注 ⭐⭐⭐ (差距 ≥ 5%，具備正期望值)${tb}`
           combatStatus = "GO"
         } else {
-          advice = "æœ€ä½³ç­–ç•¥æ˜¯ä¸æŠ•æ³¨ï¼Œç­‰å¾…ä¸‹ä¸€å ´æ›´æ˜Žç¢ºçš„æ©Ÿæœƒ"
+          advice = "最佳策略是不投注，等待下一場更明確的機會"
           combatStatus = "AVOID"
         }
 
@@ -874,7 +873,7 @@ export const handler: Handler = async (event) => {
         return a.runnerNumber - b.runnerNumber
       })
 
-            // â”€â”€ Odds structure classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Odds structure classification ──────────────────────────────────
       const oddsStructure = analyzeOddsStructure(predictions, isPreRace)
 
       const validPredictions = predictions.filter((p: any) => !String(p.runnerNumber).startsWith("R"))
@@ -882,28 +881,28 @@ export const handler: Handler = async (event) => {
       const hasDarkHorse = validPredictions.some((p: any) => p.investmentLabel === "DARKHORSE")
       const highRiskRunners = validPredictions.filter((p: any) => p.investmentLabel === "RISK").length
 
-      const summaryText = `AI å››ç¶­åº¦åˆ†æžï¼ˆæŒ‰æ¨¡åž‹è³ çŽ‡æŽ’åï¼‰ï¼šé¦–é¸ #${topPick.runnerNumber} ${topPick.runnerName}ï¼ˆæ¨¡åž‹è³ çŽ‡ ${topPick.modelOdds}ï¼‰ã€‚${
-        hasDarkHorse ? "æœ¬å ´å­˜åœ¨æ½›åœ¨é»‘é¦¬ï¼Œ" : ""
-      }${highRiskRunners > 0 ? `æœ‰ ${highRiskRunners} åŒ¹é«˜é¢¨éšªè³½é§’éœ€è­¦æƒ•ã€‚` : "å…¨å ´ç‹€æ…‹ç›¸å°ç©©å®šã€‚"}`
+      const summaryText = `AI 四維度分析（按模型賠率排名）：首選 #${topPick.runnerNumber} ${topPick.runnerName}（模型賠率 ${topPick.modelOdds}）。${
+        hasDarkHorse ? "本場存在潛在黑馬，" : ""
+      }${highRiskRunners > 0 ? `有 ${highRiskRunners} 匹高風險賽駒需警惕。` : "全場狀態相對穩定。"}`
 
       const raceDetail = {
         id: race.id,
         raceNumber: race.no,
-        raceName: race.raceName_ch || race.raceName_en || `ç¬¬ ${race.no} å ´`,
+        raceName: race.raceName_ch || race.raceName_en || `第 ${race.no} 場`,
         distance: race.distance,
         distanceMeters: distance,
         benchmarkRD: benchmark,
-        course: race.raceCourse?.description_ch || race.raceCourse?.description_en || "è‰åœ°",
+        course: race.raceCourse?.description_ch || race.raceCourse?.description_en || "草地",
         raceClass: race.raceClass_ch || race.raceClass_en || "",
         runners: race.wageringFieldSize || runners.length,
         totalRaces: (meeting as any).totalRaces || meeting.races?.length || 11,
         meetingId: meeting.id || "current",
         venueCode,
         date: meeting.date,
-        track: race.raceTrack?.description_ch || race.raceTrack?.description_en || "è‰åœ°",
-        going: race.go_ch || race.go_en || "å¥½åœ°",
+        track: race.raceTrack?.description_ch || race.raceTrack?.description_en || "草地",
+        going: race.go_ch || race.go_en || "好地",
         postTime: race.postTime,
-        meetingType: meeting.meetingType === "N" ? "å¤œè³½" : "æ—¥è³½",
+        meetingType: meeting.meetingType === "N" ? "夜賽" : "日賽",
         topPick,
         predictions,
         pools: isPreRace ? null : poolsData,
