@@ -135,17 +135,20 @@ export function analyzeOddsStructure(
     .map((p) => p.runnerNumber)
 
   const topBanker = withOdds[0].runnerNumber
+    const od1Horse = withOdds[0]?.runnerNumber || ''
+    const od2Horse = withOdds[1]?.runnerNumber || ''
+    const od3Horse = withOdds[2]?.runnerNumber || ''
+    const od4Horse = withOdds[3]?.runnerNumber || ''
 
   // ══════════════════════════════════════════════════════════════════════
   // 規則一：馬膽局 — od1 ≤ 3
   // ══════════════════════════════════════════════════════════════════════
   if (od1 <= 3) {
-    let tip = `強馬膽 #${topBanker}（${od1}）存在。連贏(Q)聚焦首選配搭次選。`
-    let qin: OddsStructureResult['qinFocus'] = 'od1_group'
+    let tip = `強膽黑 #${topBanker}(${od1}) 存在，建議(0)或焦點連結冷殺。`
+          let qin: OddsStructureResult['qinFocus'] = 'od1_group
 
     if (od2 >= 4) {
-      tip = `超強馬膽 #${topBanker}（${od1}）配搭次選（${od2}）。Q幾乎確定包含首選，宜以首選為膽連接3至4匹腳。`
-    }
+      tip = `超強馬膽 #${topBanker}(${od1}) 配搭次強 #${od2Horse}(${od2})。Q經平穩定包含首選，宜以首選為膽連搭3至4匹暗。`    }
 
     return {
       raceType: '馬膽局',
@@ -163,8 +166,7 @@ export function analyzeOddsStructure(
       qinFocus: qin,
       topBanker: String(topBanker),
       coldCandidates: [],
-      description: `馬膽局：超班馬膽存在（首選賠率 ${od1}），熱門集中。賠率結構 ${oddsPattern}（od1熱門/od2半冷/od3冷馬）。`,
-      tip,
+      description: `馬膽局：超班馬膽存在（賠膽率 #${topBanker}(${od1})），熱門集中。賠率結構 ${oddsPattern} (od1熱門/od2半冷/od3冷馬)。`,      tip,
     }
   }
 
