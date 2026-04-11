@@ -180,11 +180,10 @@ function InvestmentRankingChart({ predictions }: { predictions: Prediction[] }) 
     .slice(0, 2)
     .map(p => p.runnerNumber)
 
-  // Sort horses by WIN investment (descending) and take top 12
+  // Sort horses by WIN investment (descending) and take all valid horses
   const data = predictions
     .filter(p => p.estWinInvestment != null && !String(p.runnerNumber).startsWith("R"))
     .sort((a, b) => (b.estWinInvestment ?? 0) - (a.estWinInvestment ?? 0))
-    .slice(0, 12)
     .map(p => ({
       runnerNumber: p.runnerNumber,
       winOdds: p.winOdds,

@@ -178,6 +178,10 @@ interface OddsStructureResult {
   od2: number  // 次選賠率
   od3: number  // 三選賠率
   od4: number  // 四選賠率
+  od1Name?: string
+  od2Name?: string
+  od3Name?: string
+  od4Name?: string
   od1Count: number  // 熱門馬數量(1-9.9)
   od2Count: number  // 半冷門馬數量(10-19.9)
   od3Count: number  // 冷馬數量(20-99)
@@ -206,7 +210,7 @@ function analyzeOddsStructure(
     tip: "等待賠率開盤後分析。",
   }
 
-  const withOdds = predictions
+  const withOdds = [...predictions]
     .filter(
       (p) =>
         p.winOdds !== "—" &&
@@ -218,10 +222,16 @@ function analyzeOddsStructure(
   if (withOdds.length < 4) return NA
 
   // 提取前四名賠率
-  const od1 = parseFloat(String(withOdds[0].winOdds))
-  const od2 = parseFloat(String(withOdds[1].winOdds))
-  const od3 = parseFloat(String(withOdds[2].winOdds))
-  const od4 = withOdds[3] ? parseFloat(String(withOdds[3].winOdds)) : 99
+  const top4 = withOdds.slice(0, 4)
+  const od1 = top4[0] ? parseFloat(String(top4[0].winOdds)) : 99
+  const od2 = top4[1] ? parseFloat(String(top4[1].winOdds)) : 99
+  const od3 = top4[2] ? parseFloat(String(top4[2].winOdds)) : 99
+  const od4 = top4[3] ? parseFloat(String(top4[3].winOdds)) : 99
+
+  const od1Name = top4[0]?.runnerName
+  const od2Name = top4[1]?.runnerName
+  const od3Name = top4[2]?.runnerName
+  const od4Name = top4[3]?.runnerName
 
   // 計算 od1/od2/od3 分類數量
   const od1Count = withOdds.filter(p => parseFloat(String(p.winOdds)) < 10).length
@@ -260,6 +270,7 @@ function analyzeOddsStructure(
     return {
       raceType: "馬膽局", raceTypeCode: "BANKER",
       od1, od2, od3, od4, 
+      od1Name, od2Name, od3Name, od4Name,
       od1Count, od2Count, od3Count, oddsPattern, hotCount,
       coldSignal: false,
       qinFocus: qin,
@@ -279,6 +290,7 @@ function analyzeOddsStructure(
     return {
       raceType: "混亂局", raceTypeCode: "CHAOTIC",
       od1, od2, od3, od4,
+      od1Name, od2Name, od3Name, od4Name,
       od1Count, od2Count, od3Count, oddsPattern, hotCount,
       coldSignal: true,
       qinFocus: "od2_od3_group",
@@ -310,6 +322,7 @@ function analyzeOddsStructure(
     return {
       raceType: "分立局", raceTypeCode: "SPLIT",
       od1, od2, od3, od4,
+      od1Name, od2Name, od3Name, od4Name,
       od1Count, od2Count, od3Count, oddsPattern, hotCount,
       coldSignal,
       qinFocus: qin,
@@ -324,6 +337,7 @@ function analyzeOddsStructure(
   return {
     raceType: "分立局", raceTypeCode: "SPLIT",
     od1, od2, od3, od4,
+    od1Name, od2Name, od3Name, od4Name,
     od1Count, od2Count, od3Count, oddsPattern, hotCount,
     coldSignal: false,
     qinFocus: "od1_group",
@@ -344,6 +358,8 @@ function json(statusCode: number, body: unknown) {
     body: JSON.stringify(body),
   }
 }
+
+import { RunnerPrediction } from "./lib/types.js"
 
 export const handler: Handler = async (event) => {
   try {
@@ -496,15 +512,16 @@ export const handler: Handler = async (event) => {
         if (poolsData.WIN > 0 || poolsData.QIN > 0) isPreRace = false
       } catch { /* ignore */ }
 
-      // ── Step 4: Historical odds from Neon ─────────────────────────────
+      // ── Step 4: Historical odds and Race Results from Neon ─────────────────────────────
       let historicalOddsMap: Record<string, number> = {}
       let min30OddsMap: Record<string, number> = {}
+      let resultsMap: Record<string, number> = {}
       if (process.env.DATABASE_URL) {
         try {
           const sql = neon(process.env.DATABASE_URL)
           const d = meeting.date.replace(/[\/-]/g, "")
           const isoDate = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
-          const [min15Rows, min30Rows] = await Promise.all([
+          const [min15Rows, min30Rows, resultRows] = await Promise.all([
             sql`
               SELECT runner_number, odds
               FROM odds_snapshots
@@ -523,6 +540,13 @@ export const handler: Handler = async (event) => {
                 AND mtp_bucket = 30
               LIMIT 20
             `,
+            sql`
+              SELECT runner_number, finish_pos
+              FROM race_results
+              WHERE date::date = ${isoDate}::date
+                AND venue = ${venueCode.toUpperCase()}
+                AND race_no = ${raceNo}
+            `,
           ])
           min15Rows.forEach((row: any) => {
             const runnerNum = String(row.runner_number).padStart(2, "0")
@@ -532,8 +556,13 @@ export const handler: Handler = async (event) => {
             const runnerNum = String(row.runner_number).padStart(2, "0")
             if (!min30OddsMap[runnerNum]) min30OddsMap[runnerNum] = parseFloat(row.odds)
           })
+          resultRows.forEach((row: any) => {
+            // Some results might be '1' and some might be '01', standardizing to '01'
+            const runnerNum = String(row.runner_number).replace(/\D/g, "").padStart(2, "0")
+            resultsMap[runnerNum] = parseInt(row.finish_pos)
+          })
         } catch (e: any) {
-          console.error("Neon fetch odds failed", e.message)
+          console.error("Neon fetch odds/results failed", e.message)
         }
       }
 
@@ -560,7 +589,7 @@ export const handler: Handler = async (event) => {
       const benchmark = getWeightRDBenchmark(distance)
       const dynamicWeights = getDynamicWeights(distance, race.raceClass_en || race.raceClass_ch || "4")
 
-      const predictions = runners.flatMap((r: any) => {
+      const predictions: RunnerPrediction[] = runners.flatMap((r: any): RunnerPrediction[] => {
         try {
           const winOddsStr = r.winOdds || oddsMap[r.no.padStart(2, "0")] || oddsMap[r.no] || ""
           const hasOdds = winOddsStr !== ""
@@ -588,7 +617,7 @@ export const handler: Handler = async (event) => {
         const burdenScore = Math.max(0, (benchmark - weightRD) / benchmark)
 
         let ageBonus = 1.0
-        let ageStage = "veteran"
+        let ageStage: "risingstar" | "primewarrior" | "veteran" | "unknown" = "veteran"
         let ageStageLabel = ""
         if (age <= 3) {
           ageBonus = AGE_FACTORS["2-3歲"]
@@ -720,22 +749,21 @@ export const handler: Handler = async (event) => {
         let qinSum = 0
         Object.entries(qinOddsMap).forEach(([combo, odds]) => {
           if (odds > 0 && QIN_BASE > 0) {
-            const parts = combo.split("-").map((x: string) => x.padStart(2, "0"))
+            const parts = combo.split(",").map((x: string) => x.padStart(2, "0"))
             if (parts.includes(rNo)) qinSum += (QIN_BASE * DEDUCT) / odds
           }
         })
         const estQINInvestment = qinSum > 0 ? Math.round(qinSum) : null
 
-        // ── Large-bet detection (requires overnight odds in Neon) ─────────
-        let moneyAlert: "large_bet" | "steady" | "drifting" | undefined
-        if (oddsHistory.overnight && displayOdds !== "—") {
-          const ov = parseFloat(String(oddsHistory.overnight))
-          const cu = parseFloat(String(displayOdds))
-          if (!isNaN(ov) && !isNaN(cu)) {
-            const drop = (ov - cu) / ov
-            moneyAlert = drop >= 0.3 ? "large_bet" : drop <= -0.2 ? "drifting" : "steady"
-          }
+        let moneyAlert: "large_bet" | "drifting" | null = null
+        if (oddsHistory.min30 && !isNaN(parseFloat(r.winOdds))) {
+          const prev = oddsHistory.min30
+          const curr = parseFloat(r.winOdds)
+          if (curr <= prev * 0.7) moneyAlert = "large_bet"
+          else if (curr >= prev * 1.2) moneyAlert = "drifting"
         }
+
+        const finalPosition = resultsMap[runnerKey] || null
 
         return [{
           runnerNumber: displayRunnerNumber,
@@ -786,6 +814,7 @@ export const handler: Handler = async (event) => {
           estQINInvestment,
           moneyAlert,
           isTheoretical: isPreRace,
+          finalPosition,
         }]
         } catch (runnerErr: any) {
           console.error(`Runner ${r?.no} parse error:`, runnerErr?.message)
@@ -802,7 +831,7 @@ export const handler: Handler = async (event) => {
             winOdds: "—",
             placeOdds: "—",
             score: 0,
-            grade: "D",
+            grade: "D" as "D",
             rating: 0,
             horseWeight: 1000,
             last3Form: "—",

@@ -42,9 +42,17 @@ interface OddsStructure {
   od2: number
   od3: number
   od4: number
+  od1Name?: string
+  od2Name?: string
+  od3Name?: string
+  od4Name?: string
+  od1Count?: number
+  od2Count?: number
+  od3Count?: number
+  oddsPattern?: string
   hotCount: number
   coldSignal: boolean
-  qinFocus: string
+  qinFocus: "od1_group" | "od2_od3_group" | "spread" | "unknown"
   topBanker: string | null
   coldCandidates: (string | number)[]
   description: string
@@ -81,7 +89,10 @@ function fmtMoney(n: number | null | undefined, isTheoretical?: boolean): string
   return `${prefix}$${k.toFixed(0)}K`
 }
 
-function EVBadge({ ev }: { ev: number }) {
+function EVBadge({ ev }: { ev: number | undefined | null }) {
+  if (ev === undefined || ev === null || isNaN(ev)) {
+    return <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-slate-700 text-slate-400">—</span>
+  }
   if (ev > 0.1)
     return <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-600 text-white">+{ev.toFixed(2)}</span>
   if (ev > 0)
@@ -262,7 +273,7 @@ function EVMatrixTable({ predictions, isPreRace }: { predictions: Prediction[]; 
 
                 {/* EV */}
                 <td className="px-3 py-3 whitespace-nowrap">
-                  {p.winOdds !== "—" ? <EVBadge ev={p.expectedValue} /> : <span className="text-slate-700">—</span>}
+                  <EVBadge ev={p.expectedValue} />
                 </td>
 
                 {/* 建議 */}

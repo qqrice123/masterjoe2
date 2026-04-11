@@ -36,7 +36,7 @@ export function PaceDrawMap({ predictions, totalRunners }: Props) {
     rear:       predictions.filter(p => p.combatAdvice?.includes("後追")),
   };
 
-  const HorseTag = ({ p, highlight }: { p: Prediction; highlight?: boolean }) => (
+  const HorseTag = ({ p, highlight }: { p: Prediction; highlight?: boolean; key?: string | number }) => (
     <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs transition-all
       ${highlight ? "border-emerald-500 bg-emerald-500/15 text-emerald-300" : "border-[#2a3352] bg-[#1c2333] text-slate-300"}`}>
       <span className="font-bold text-slate-400">{p.draw || p.runnerNumber}</span>
@@ -73,7 +73,7 @@ export function PaceDrawMap({ predictions, totalRunners }: Props) {
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {horses.length ? horses.map(p => (
-                  <HorseTag key={p.runnerNumber} p={p} highlight={p.expectedValue > 0} />
+                  <HorseTag key={p.runnerNumber} p={p} highlight={(p.expectedValue || 0) > 0} />
                 )) : <span className="text-slate-600 text-xs">—</span>}
               </div>
             </div>

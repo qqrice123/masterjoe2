@@ -25,6 +25,10 @@ export interface OddsStructureResult {
   od2: number
   od3: number
   od4: number
+  od1Name?: string
+  od2Name?: string
+  od3Name?: string
+  od4Name?: string
   od1Count: number
   od2Count: number
   od3Count: number
@@ -83,6 +87,7 @@ export interface RunnerPrediction {
   isTheoretical: boolean
   combatAdvice?: string
   combatStatus?: CombatStatus
+  finalPosition?: number | null
 }
 
 export interface PoolData {

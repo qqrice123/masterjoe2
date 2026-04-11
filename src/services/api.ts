@@ -35,6 +35,7 @@ export interface Prediction {
   estQINInvestment?: number;   // QIN 聚合資金（港幣）
   estQPLInvestment?: number;   // QPL 聚合資金（港幣）
   moneyAlert?: "large_bet" | "steady" | "drifting";
+  finalPosition?: number | null; // 賽果名次
 }
 export interface RaceDetail extends Race {
   date: string; track: string; going: string;

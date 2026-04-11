@@ -8,6 +8,14 @@ interface OddsStructure {
   od2: number
   od3: number
   od4: number
+  od1Name?: string
+  od2Name?: string
+  od3Name?: string
+  od4Name?: string
+  od1Count?: number
+  od2Count?: number
+  od3Count?: number
+  oddsPattern?: string
   hotCount: number
   coldSignal: boolean
   qinFocus: "od1_group" | "od2_od3_group" | "spread" | "unknown"
@@ -65,7 +73,7 @@ const CONFIG = {
   },
 }
 
-function OddsTag({ value, label }: { value: number; label: string }) {
+function OddsTag({ value, label, name }: { value: number; label: string; name?: string }) {
   const color =
     value <= 3
       ? "text-emerald-400 bg-emerald-950/70"
@@ -73,8 +81,9 @@ function OddsTag({ value, label }: { value: number; label: string }) {
       ? "text-amber-400 bg-amber-950/70"
       : "text-slate-400 bg-slate-800/70"
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border border-white/5 ${color}`}>
-      <span className="text-slate-500">{label}</span>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono border border-white/5 ${color}`}>
+      <span className="text-slate-500 font-sans">{label}</span>
+      {name && <span className="text-slate-300 font-sans max-w-[60px] truncate" title={name}>{name}</span>}
       <span className="font-bold">{value}</span>
     </span>
   )
@@ -103,11 +112,11 @@ export function OddsStructureBanner({ oddsStructure, isPreRace }: Props) {
         </span>
 
         {/* Odds tier pills */}
-        <div className="flex items-center gap-1.5">
-          <OddsTag value={oddsStructure.od1} label="od₁" />
-          <OddsTag value={oddsStructure.od2} label="od₂" />
-          <OddsTag value={oddsStructure.od3} label="od₃" />
-          <OddsTag value={oddsStructure.od4} label="od₄" />
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <OddsTag value={oddsStructure.od1} label="大熱" name={oddsStructure.od1Name} />
+          <OddsTag value={oddsStructure.od2} label="次熱" name={oddsStructure.od2Name} />
+          <OddsTag value={oddsStructure.od3} label="三熱" name={oddsStructure.od3Name} />
+          <OddsTag value={oddsStructure.od4} label="四熱" name={oddsStructure.od4Name} />
         </div>
 
         {/* Hot horse count */}

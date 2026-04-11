@@ -10,7 +10,7 @@ const VERDICT_ICONS: Record<string, string> = {
 };
 
 function RankCard({ rank, horse, label, color }: {
-  rank: string; horse: Prediction; label: string; color: string
+  rank: string; horse: Prediction; label: string; color: string; key?: string | number
 }) {
   return (
     <div className={`bg-[#1c2333] rounded-xl p-4 border ${color} space-y-2`}>
@@ -22,13 +22,22 @@ function RankCard({ rank, horse, label, color }: {
         <span className="text-sm font-bold text-white">
           {horse.runnerNumber}號 {horse.runnerName}
         </span>
+        {horse.finalPosition != null && (
+          <span className={`ml-2 px-1.5 py-0.5 text-[10px] font-bold rounded ${
+            horse.finalPosition <= 3 
+              ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" 
+              : "bg-slate-700/50 text-slate-400"
+          }`}>
+            第 {horse.finalPosition} 名
+          </span>
+        )}
         <span className="ml-2 text-xs text-slate-400">{horse.jockey}</span>
       </div>
       <div className="flex gap-3 text-xs">
         <span className="text-blue-400">勝率 {horse.winProbability}%</span>
         <span className="text-slate-300">賠率 {horse.winOdds}</span>
         <span className={horse.expectedValue > 0 ? "text-emerald-400" : "text-red-400"}>
-          EV {horse.expectedValue > 0 ? "+" : ""}{horse.expectedValue?.toFixed(3)}
+          EV {horse.expectedValue > 0 ? "+" : ""}{horse.expectedValue?.toFixed(3) ?? "—"}
         </span>
       </div>
       {horse.combatAdvice && (
@@ -51,9 +60,9 @@ function RankCard({ rank, horse, label, color }: {
 
 export function Recommendations({ race }: Props) {
   const preds = race.predictions ?? [];
-  const ranked = [...preds].sort((a, b) => b.expectedValue - a.expectedValue);
-  const top3   = ranked.filter(p => p.expectedValue > 0).slice(0, 3);
-  const risks  = ranked.filter(p => p.expectedValue < -0.15).slice(0, 2);
+  const ranked = [...preds].sort((a, b) => (b.expectedValue || 0) - (a.expectedValue || 0));
+  const top3   = ranked.filter(p => (p.expectedValue || 0) > 0).slice(0, 3);
+  const risks  = ranked.filter(p => (p.expectedValue || 0) < -0.15).slice(0, 2);
 
   return (
     <div className="bg-[#161b27] rounded-xl border border-[#2a3352] p-4">
@@ -89,7 +98,7 @@ export function Recommendations({ race }: Props) {
             {risks.map(p => (
               <div key={p.runnerNumber} className="bg-red-500/5 border border-red-500/20 rounded-lg p-3 text-xs">
                 <span className="text-white font-bold">{p.runnerNumber}號 {p.runnerName}</span>
-                <span className="ml-2 text-red-400">EV {p.expectedValue.toFixed(3)}</span>
+                <span className="ml-2 text-red-400">EV {p.expectedValue?.toFixed(3) ?? "—"}</span>
                 {p.riskFactors?.map(r => (
                   <span key={r} className="ml-2 text-slate-500">{r}</span>
                 ))}

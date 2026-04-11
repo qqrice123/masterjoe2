@@ -145,10 +145,11 @@ export function analyzeOddsStructure(
   // ══════════════════════════════════════════════════════════════════════
   if (od1 <= 3) {
     let tip = `強膽黑 #${topBanker}(${od1}) 存在，建議(0)或焦點連結冷殺。`
-          let qin: OddsStructureResult['qinFocus'] = 'od1_group
+    let qin: OddsStructureResult['qinFocus'] = 'od1_group'
 
     if (od2 >= 4) {
-      tip = `超強馬膽 #${topBanker}(${od1}) 配搭次強 #${od2Horse}(${od2})。Q經平穩定包含首選，宜以首選為膽連搭3至4匹暗。`    }
+      tip = `超強馬膽 #${topBanker}(${od1}) 配搭次強 #${od2Horse}(${od2})。Q經平穩定包含首選，宜以首選為膽連搭3至4匹暗。`
+    }
 
     return {
       raceType: '馬膽局',
