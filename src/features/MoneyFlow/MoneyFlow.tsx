@@ -1,12 +1,27 @@
 // src/components/features/MoneyFlow/MoneyFlow.tsx
 // 資金追蹤模組 — WinPoolChart + QIN熱力圖 + 大戶警報 + 彩池總覽
 
-import { useMemo } from "react"
+import { memo, useMemo } from "react"
 import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer
 } from "recharts"
 import { OddsStructureBanner } from "../AnalyticsDashboard/OddsStructureBanner"
+import type { XAxisProps } from "recharts"
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+const CHART_COLORS = {
+  WIN:  "#fff005",  // 金黃
+  QIN:  "#ff9205",  // 橙
+  QPL:  "#f953f7",  // 紫
+  ALERT:"#ef4444",  // 紅（大戶落飛）
+  AI:   "#7dd3fc",  // 天藍（AI 首選）
+  EV:   "#f472b6",  // 粉紅（正EV）
+} as const
+
+const POOL_DEDUCTION           = 0.825       // HKJC WIN 彩池保留率
+const MIN_INVESTMENT_THRESHOLD = 10_000      // QIN 溢出最低投資門檻（港元）
+const QIN_OVERFLOW_RATIO       = 1.2         // QIN:WIN 比率警報門檻
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface OddsHistory {
@@ -110,9 +125,8 @@ function PoolBar({
   )
 }
 
-
 // ─── Sub-component: InvestmentRankingChart ────────────────────────────────────
-function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: Prediction[], oddsStructure?: OddsStructure }) {
+const InvestmentRankingChart = memo(function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: Prediction[], oddsStructure?: OddsStructure }) {
   // 1. Find the absolute #1 system pick based on modelOdds
   const systemTopPick = [...predictions]
     .filter(p => !String(p.runnerNumber).startsWith("R"))
@@ -283,10 +297,10 @@ function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: P
       </BarChart>
     </ResponsiveContainer>
   )
-}
+})
 
 // ─── Sub-component: AlertFeed ─────────────────────────────────────────────────
-function AlertFeed({ predictions }: { predictions: Prediction[] }) {
+const AlertFeed = memo(function AlertFeed({ predictions }: { predictions: Prediction[] }) {
   const alerts = predictions
     .filter(p => p.moneyAlert === "large_bet" || p.moneyAlert === "drifting")
     .sort((a, b) => {
@@ -312,7 +326,9 @@ function AlertFeed({ predictions }: { predictions: Prediction[] }) {
         const isLargeBet = p.moneyAlert === "large_bet"
         const cur  = parseFloat(String(p.oddsHistory.current))
         const prev = p.oddsHistory.min15 ?? p.oddsHistory.min30 ?? p.oddsHistory.overnight
-        const drop = prev && !isNaN(cur) ? ((Number(prev) - cur) / Number(prev) * 100).toFixed(1) : null
+        const drop = prev != null && !isNaN(cur) && Number(prev) > 0 
+          ? ((Number(prev) - cur) / Number(prev) * 100).toFixed(1) 
+          : null
 
         return (
           <div
@@ -362,10 +378,10 @@ function AlertFeed({ predictions }: { predictions: Prediction[] }) {
       })}
     </div>
   )
-}
+})
 
 // ─── Sub-component: OddsTable ─────────────────────────────────────────────────
-function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; totalWin: number }) {
+const OddsTable = memo(function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; totalWin: number }) {
   const rows = predictions
     .filter(p => !String(p.runnerNumber).startsWith("R"))
     .slice(0, 14)
@@ -378,6 +394,7 @@ function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; total
             <th className="text-left py-2 pr-2 font-normal">馬號</th>
             <th className="text-right py-2 px-2 font-normal">獨贏</th>
             <th className="text-right py-2 px-2 font-normal">位置</th>
+            <th className="text-right py-2 px-2 font-normal">EV</th>
             <th className="text-right py-2 px-2 font-normal">WIN估算</th>
             <th className="text-right py-2 px-2 font-normal">市佔%</th>
             <th className="text-right py-2 px-2 font-normal">QIN估算</th>
@@ -430,6 +447,12 @@ function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; total
                 <td className="text-right py-2 px-2 font-mono text-[#05b0ff]">
                   {p.placeOdds === "—" ? "—" : p.placeOdds}
                 </td>
+                <td className={`text-right py-2 px-2 font-mono font-bold ${
+                  p.expectedValue > 0.1  ? "text-emerald-400" :
+                  p.expectedValue > 0    ? "text-amber-400"   : "text-red-400"
+                }`}>
+                  {p.expectedValue > 0 ? "+" : ""}{(p.expectedValue * 100).toFixed(0)}%
+                </td>
                 <td className="text-right py-2 px-2 font-mono text-[#fff005]">
                   {p.estWinInvestment ? `$${fmt(p.estWinInvestment)}` : "—"}
                 </td>
@@ -462,7 +485,7 @@ function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; total
       </table>
     </div>
   )
-}
+})
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
@@ -511,7 +534,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
     <div className="space-y-4">
 
       {/* ── Header Stats ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <PoolBar
           label="獨贏 WIN" icon="🏆"
           amount={pools?.WIN ?? 0}
@@ -534,6 +557,12 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
           label="位置Q QPL" icon="🎯"
           amount={pools?.QPL ?? 0}
           color="text-[#f953f7]"
+        />
+        <PoolBar
+          label="孖寶 DBL" icon="⛓️"
+          amount={pools?.DBL ?? 0}
+          color="text-cyan-400"
+          note="跨場次資金"
         />
       </div>
 
