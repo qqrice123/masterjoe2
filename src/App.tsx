@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { AnalyticsDashboard } from "@/features/AnalyticsDashboard"
 import { MoneyFlow } from "@/features/MoneyFlow/MoneyFlow"
-import { BarChart2, Activity, Lightbulb, History, Moon, Sun, RefreshCw } from "lucide-react"
+import { BarChart2, Activity, Lightbulb, History, Moon, Sun, RefreshCw, ChevronDown } from "lucide-react"
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -124,34 +124,40 @@ export default function App() {
           </div>
 
           {/* Meeting selector */}
-          <select
-            value={venueCode}
-            onChange={e => {
-              setVenueCode(e.target.value)
-              setRaceNo(1)
-              const m = meetings.find(m => m.venueCode === e.target.value)
-              if (m) setMaxRaces(m.totalRaces || 11)
-            }}
-            className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500"
-          >
-            {meetingsLoading && <option>載入中...</option>}
-            {meetings.map(m => (
-              <option key={m.venueCode} value={m.venueCode}>
-                {m.venue} ({m.date})
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={venueCode}
+              onChange={e => {
+                setVenueCode(e.target.value)
+                setRaceNo(1)
+                const m = meetings.find(m => m.venueCode === e.target.value)
+                if (m) setMaxRaces(m.totalRaces || 11)
+              }}
+              className="appearance-none cursor-pointer bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:border-blue-500 hover:border-slate-500 transition-colors shadow-sm"
+            >
+              {meetingsLoading && <option>載入中...</option>}
+              {meetings.map(m => (
+                <option key={m.venueCode} value={m.venueCode}>
+                  {m.venue} ({m.date})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          </div>
 
           {/* Race number selector */}
-          <select
-            value={raceNo}
-            onChange={e => setRaceNo(Number(e.target.value))}
-            className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500"
-          >
-            {Array.from({ length: maxRaces }, (_, i) => i + 1).map(n => (
-              <option key={n} value={n}>第 {n} 場</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={raceNo}
+              onChange={e => setRaceNo(Number(e.target.value))}
+              className="appearance-none cursor-pointer bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:border-blue-500 hover:border-slate-500 transition-colors shadow-sm"
+            >
+              {Array.from({ length: maxRaces }, (_, i) => i + 1).map(n => (
+                <option key={n} value={n}>第 {n} 場</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          </div>
 
           {/* Race name (if loaded) */}
           {raceDetail && (
@@ -176,7 +182,7 @@ export default function App() {
           {/* Refresh indicator */}
           <button
             onClick={() => refetch()}
-            className="p-2 text-slate-400 hover:text-blue-400 transition-colors rounded-lg hover:bg-slate-800"
+            className="p-2 text-slate-400 hover:text-blue-400 transition-all duration-200 active:scale-95 rounded-lg hover:bg-slate-800"
             aria-label="手動刷新"
           >
             <RefreshCw size={15} className={isFetching ? "animate-spin text-blue-400" : ""} />
@@ -185,10 +191,10 @@ export default function App() {
           {/* Auto-refresh toggle */}
           <button
             onClick={() => setAutoRefresh(v => !v)}
-            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+            className={`text-xs px-2.5 py-1 rounded-full border transition-all duration-200 active:scale-95 shadow-sm ${
               autoRefresh
-                ? "border-blue-600 text-blue-400 bg-blue-950/50"
-                : "border-slate-700 text-slate-500"
+                ? "border-blue-600 text-blue-400 bg-blue-950/50 hover:bg-blue-900/60 hover:border-blue-500"
+                : "border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/50"
             }`}
           >
             {autoRefresh ? "自動 ON" : "自動 OFF"}
@@ -212,13 +218,13 @@ export default function App() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm rounded-t-lg border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm rounded-t-lg border-b-2 transition-all duration-300 active:scale-95 ${
                 activeTab === id
-                  ? "border-blue-500 text-blue-400 bg-slate-800/40"
-                  : "border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/20"
+                  ? "border-blue-500 text-blue-400 bg-slate-800/40 shadow-[0_1px_10px_rgba(59,130,246,0.2)]"
+                  : "border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/20 hover:border-slate-700"
               }`}
             >
-              <Icon size={14} />
+              <Icon size={14} className={`transition-transform duration-300 ${activeTab === id ? "scale-110" : ""}`} />
               {labelFull}
             </button>
           ))}
@@ -226,7 +232,7 @@ export default function App() {
       </div>
 
       {/* ── Main Content ─────────────────────────────────────────────── */}
-      <main className="max-w-[1400px] mx-auto px-4 py-5 pb-24 md:pb-8">
+      <main className="max-w-[1400px] mx-auto px-4 py-5 pb-24 md:pb-8 animate-[fadeIn_0.5s_ease-out]">
 
         {/* Race header info strip */}
         {raceDetail && (
