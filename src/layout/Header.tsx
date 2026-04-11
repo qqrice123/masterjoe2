@@ -7,7 +7,7 @@ export function Header() {
       <div className="container flex h-14 items-center">
         <Link href="/" className="flex items-center gap-2 font-bold text-lg px-4">
           <Zap className="h-5 w-5 text-blue-600" />
-          <span>Master Joe Racing</span>
+          <span>馬靈靈</span>
         </Link>
       </div>
     </header>

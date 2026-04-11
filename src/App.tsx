@@ -115,12 +115,12 @@ export default function App() {
 
           {/* Logo */}
           <div className="flex items-center gap-2 mr-2">
-            <svg viewBox="0 0 32 32" width="28" height="28" aria-label="Master Joe Racing">
+            <svg viewBox="0 0 32 32" width="28" height="28" aria-label="馬靈靈">
               <rect width="32" height="32" rx="7" fill="#3b82f6"/>
               <text x="16" y="22" fontSize="18" textAnchor="middle"
                 fill="white" fontFamily="sans-serif" fontWeight="bold">馬</text>
             </svg>
-            <span className="text-sm font-bold text-slate-100 hidden sm:block">Master Joe Racing</span>
+            <span className="text-sm font-bold text-slate-100 hidden sm:block">馬靈靈</span>
           </div>
 
           {/* Meeting selector */}

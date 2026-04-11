@@ -182,6 +182,10 @@ interface OddsStructureResult {
   od2Name?: string
   od3Name?: string
   od4Name?: string
+  od1Number?: string | number
+  od2Number?: string | number
+  od3Number?: string | number
+  od4Number?: string | number
   od1Count: number  // 熱門馬數量(1-9.9)
   od2Count: number  // 半冷門馬數量(10-19.9)
   od3Count: number  // 冷馬數量(20-99)
@@ -233,6 +237,11 @@ function analyzeOddsStructure(
   const od3Name = top4[2]?.runnerName
   const od4Name = top4[3]?.runnerName
 
+  const od1Number = top4[0]?.runnerNumber
+  const od2Number = top4[1]?.runnerNumber
+  const od3Number = top4[2]?.runnerNumber
+  const od4Number = top4[3]?.runnerNumber
+
   // 計算 od1/od2/od3 分類數量
   const od1Count = withOdds.filter(p => parseFloat(String(p.winOdds)) < 10).length
   const od2Count = withOdds.filter(p => {
@@ -271,6 +280,7 @@ function analyzeOddsStructure(
       raceType: "馬膽局", raceTypeCode: "BANKER",
       od1, od2, od3, od4, 
       od1Name, od2Name, od3Name, od4Name,
+      od1Number, od2Number, od3Number, od4Number,
       od1Count, od2Count, od3Count, oddsPattern, hotCount,
       coldSignal: false,
       qinFocus: qin,
@@ -291,6 +301,7 @@ function analyzeOddsStructure(
       raceType: "混亂局", raceTypeCode: "CHAOTIC",
       od1, od2, od3, od4,
       od1Name, od2Name, od3Name, od4Name,
+      od1Number, od2Number, od3Number, od4Number,
       od1Count, od2Count, od3Count, oddsPattern, hotCount,
       coldSignal: true,
       qinFocus: "od2_od3_group",
@@ -323,6 +334,7 @@ function analyzeOddsStructure(
       raceType: "分立局", raceTypeCode: "SPLIT",
       od1, od2, od3, od4,
       od1Name, od2Name, od3Name, od4Name,
+      od1Number, od2Number, od3Number, od4Number,
       od1Count, od2Count, od3Count, oddsPattern, hotCount,
       coldSignal,
       qinFocus: qin,
@@ -338,6 +350,7 @@ function analyzeOddsStructure(
     raceType: "分立局", raceTypeCode: "SPLIT",
     od1, od2, od3, od4,
     od1Name, od2Name, od3Name, od4Name,
+    od1Number, od2Number, od3Number, od4Number,
     od1Count, od2Count, od3Count, oddsPattern, hotCount,
     coldSignal: false,
     qinFocus: "od1_group",
