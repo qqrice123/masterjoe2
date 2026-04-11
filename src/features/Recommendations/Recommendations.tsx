@@ -61,8 +61,9 @@ function RankCard({ rank, horse, label, color }: {
 export function Recommendations({ race }: Props) {
   const preds = race.predictions ?? [];
   const ranked = [...preds].sort((a, b) => (b.expectedValue || 0) - (a.expectedValue || 0));
-  const top3   = ranked.filter(p => (p.expectedValue || 0) > 0).slice(0, 3);
-  const risks  = ranked.filter(p => (p.expectedValue || 0) < -0.15).slice(0, 2);
+  // Relaxed "Top Pick" criteria to EV >= -0.06
+  const top3   = ranked.filter(p => (p.expectedValue || 0) >= -0.06).slice(0, 3);
+  const risks  = ranked.filter(p => (p.expectedValue || 0) < -0.30).slice(0, 2);
 
   return (
     <div className="bg-[#161b27] rounded-xl border border-[#2a3352] p-4">

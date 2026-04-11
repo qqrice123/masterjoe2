@@ -898,8 +898,8 @@ export const handler: Handler = async (event) => {
           }
         }
 
-        // ── Combat advice ────────────────────────────────────────────────
-        const diffPct = p.diffProb * 100
+        // ── Combat advice (Revised logic for GO/CAUTION based on EV) ──
+        const ev = p.expectedValue
         let advice = ""
         let combatStatus: "AVOID" | "SHADOW" | "CAUTION" | "GO" = "AVOID"
         const tieBreakerNotes: string[] = []
@@ -926,31 +926,17 @@ export const handler: Handler = async (event) => {
 
         const tb = tieBreakerNotes.length > 0 ? ` (+${tieBreakerNotes.join(", ")})` : ""
 
-        if (diffPct >= -6 && diffPct <= -3) {
-          advice = `⚡市場偏好 Q位關注${tb}`
-          combatStatus = "SHADOW"
-        } else if (diffPct < -3) {
-          advice = "避免投注 ⚠️ (模擬勝率 < 市場，市場高估此馬)"
-          combatStatus = "AVOID"
-        } else if (diffPct > -3 && diffPct <= 0) {
-          advice = `⚠️觀望 (差值微負)${tb}`
-          combatStatus = "AVOID"
-        } else if (diffPct > 0 && diffPct < 3) {
-          advice = "不投注 (差距 < 3% 且 EV 在抽水後必為負值)"
-          combatStatus = "AVOID"
-        } else if (diffPct >= 3 && diffPct < 5) {
-          if ((p.grade === "A" || p.grade === "B") && p.draw >= 1 && p.draw <= 6) {
-            advice = `最小注碼試注或考慮位置(Q位) (差距 3-5% 且具備 A/B 級與1-6檔位)${tb}`
-            combatStatus = "CAUTION"
-          } else {
-            advice = `改投位置或觀望 (差距 3-5%，無檔位/評級優勢)${tb}`
-            combatStatus = "CAUTION"
-          }
-        } else if (diffPct >= 5) {
-          advice = `積極投注 ⭐⭐⭐ (差距 ≥ 5%，具備正期望值)${tb}`
+        if (ev >= -0.06) {
+          advice = `積極投注 ⭐⭐⭐ (EV ≥ -6%)${tb}`
           combatStatus = "GO"
+        } else if (ev < -0.06 && ev >= -0.15) {
+          advice = `試注或Q位配腳 ⚠️ (EV -6% ~ -15%)${tb}`
+          combatStatus = "CAUTION"
+        } else if (ev < -0.15 && ev >= -0.30) {
+          advice = `⚡市場偏好 Q位關注 (EV -15% ~ -30%)${tb}`
+          combatStatus = "SHADOW"
         } else {
-          advice = "最佳策略是不投注，等待下一場更明確的機會"
+          advice = `避免投注 ✗ (EV < -30%)${tb}`
           combatStatus = "AVOID"
         }
 
