@@ -3,8 +3,8 @@
 
 import { useMemo } from "react"
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Cell, Legend
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer
 } from "recharts"
 import { OddsStructureBanner } from "../AnalyticsDashboard/OddsStructureBanner"
 
@@ -52,6 +52,10 @@ interface OddsStructure {
   od2Name?: string
   od3Name?: string
   od4Name?: string
+  od1Number?: string | number
+  od2Number?: string | number
+  od3Number?: string | number
+  od4Number?: string | number
   od1Count?:    number
   od2Count?:    number
   od3Count?:    number
@@ -104,75 +108,9 @@ function PoolBar({
   )
 }
 
-// ─── Sub-component: OddsMovementChart ────────────────────────────────────────
-function OddsMovementChart({ predictions }: { predictions: Prediction[] }) {
-  // Only include horses with odds history data
-  const horses = predictions
-    .filter(p =>
-      !String(p.runnerNumber).startsWith("R") &&
-      p.winOdds !== "—" &&
-      (p.oddsHistory.min15 || p.oddsHistory.min30 || p.oddsHistory.overnight)
-    )
-
-  if (horses.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-40 text-slate-500 text-sm">
-        暫無歷史賠率數據（需賽前 30 分鐘開始收集）
-      </div>
-    )
-  }
-
-  // Build chart data: each horse is a series, timepoints are X-axis
-  const timePoints = ["隔夜", "賽前30分", "賽前15分", "即時"]
-  const chartData = timePoints.map((label, i) => {
-    const entry: Record<string, any> = { time: label }
-    horses.forEach(p => {
-      const key = `#${p.runnerNumber}`
-      const h = p.oddsHistory
-      const vals = [h.overnight, h.min30, h.min15, parseFloat(String(p.winOdds))]
-      const v = vals[i]
-      entry[key] = v != null && !isNaN(Number(v)) ? Number(v) : null
-    })
-    return entry
-  })
-
-  const COLORS = [
-    "#3b82f6","#10b981","#f59e0b","#ef4444",
-    "#8b5cf6","#ec4899","#06b6d4","#84cc16",
-    "#fb923c","#a855f7","#22c55e","#eab308",
-    "#f43f5e","#38bdf8","#f87171","#4ade80"
-  ]
-
-  return (
-    <ResponsiveContainer width="100%" height={200}>
-      <LineChart data={chartData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-        <XAxis dataKey="time" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} reversed />
-        <Tooltip
-          contentStyle={{ background: "#0f1117", border: "1px solid #2a3352", borderRadius: 8, fontSize: 12 }}
-          labelStyle={{ color: "#cbd5e1" }}
-        />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
-        {horses.map((p, i) => (
-          <Line
-            key={p.runnerNumber}
-            type="monotone"
-            dataKey={`#${p.runnerNumber}`}
-            name={`#${p.runnerNumber} ${p.runnerName}`}
-            stroke={COLORS[i % COLORS.length]}
-            strokeWidth={2}
-            dot={{ r: 3 }}
-            connectNulls
-          />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
-  )
-}
 
 // ─── Sub-component: InvestmentRankingChart ────────────────────────────────────
-function InvestmentRankingChart({ predictions }: { predictions: Prediction[] }) {
+function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: Prediction[], oddsStructure?: OddsStructure }) {
   // Find top 2 AI picks based on highest expectedValue (or score)
   const topAIPicks = [...predictions]
     .filter(p => p.combatStatus === "GO" && !String(p.runnerNumber).startsWith("R"))
@@ -189,8 +127,13 @@ function InvestmentRankingChart({ predictions }: { predictions: Prediction[] }) 
       winOdds: p.winOdds,
       win: Math.round((p.estWinInvestment ?? 0) / 1000), // in K
       qin: Math.round((p.estQINInvestment ?? 0) / 1000), // in K
+      qinWinRatio: p.estWinInvestment && p.estWinInvestment > 0 ? (p.estQINInvestment ?? 0) / p.estWinInvestment : 0,
       isTopPick: topAIPicks.includes(p.runnerNumber), // Limit AI markers to max 2
       moneyAlert: p.moneyAlert,
+      isOd1: String(p.runnerNumber) === String(oddsStructure?.od1Number),
+      isOd2: String(p.runnerNumber) === String(oddsStructure?.od2Number),
+      isOd3: String(p.runnerNumber) === String(oddsStructure?.od3Number),
+      isOd4: String(p.runnerNumber) === String(oddsStructure?.od4Number),
     }))
 
   if (data.length === 0) {
@@ -223,13 +166,28 @@ function InvestmentRankingChart({ predictions }: { predictions: Prediction[] }) 
     const item = data[index];
     if (!item) return null;
 
-    // We can render a circle marker for specific horses (e.g. money alert or top pick)
+    // Determine markers
     const showMarker = item.moneyAlert === "large_bet" || item.isTopPick;
-    const markerColor = item.moneyAlert === "large_bet" ? "#ef4444" : "#ffffff"; // Red for alert, white for top pick
+    const markerColor = item.moneyAlert === "large_bet" ? "#ef4444" : "#ffffff";
     const textColor = item.moneyAlert === "large_bet" ? "#ffffff" : "#000000";
+    
+    // Determine hot label
+    let hotLabel = "";
+    if (item.isOd1) hotLabel = "大熱";
+    else if (item.isOd2) hotLabel = "次熱";
+    else if (item.isOd3) hotLabel = "三熱";
+    else if (item.isOd4) hotLabel = "四熱";
 
     return (
       <g>
+        {/* Hot labels above the bar */}
+        {hotLabel && (
+          <text x={x + width / 2} y={y - (showMarker ? 28 : 10)} textAnchor="middle" fill="#fcd34d" fontSize={10} fontWeight="bold">
+            {hotLabel}
+          </text>
+        )}
+        
+        {/* Alerts / AI pick markers */}
         {showMarker && (
           <g transform={`translate(${x + width / 2}, ${y - 12})`}>
             <circle cx={0} cy={0} r={10} fill={markerColor} stroke="#1e293b" strokeWidth={1} />
@@ -483,6 +441,21 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
     p => p.moneyAlert === "large_bet" || p.moneyAlert === "drifting"
   ).length
 
+  // Find Top 2 QIN Overflow (where QIN ratio to WIN is highest, and has minimum investment to filter noise)
+  const qinOverflows = useMemo(() => {
+    return predictions
+      .filter(p => !String(p.runnerNumber).startsWith("R") && (p.estWinInvestment ?? 0) > 10000)
+      .map(p => {
+        const win = (p.estWinInvestment ?? 0) / 1000;
+        const qin = (p.estQINInvestment ?? 0) / 1000;
+        const qinWinRatio = win > 0 ? qin / win : 0;
+        return { runnerNumber: p.runnerNumber, winOdds: p.winOdds, win, qin, qinWinRatio };
+      })
+      .filter(d => d.qin > d.win * 1.2) // QIN > 1.2x WIN
+      .sort((a, b) => b.qinWinRatio - a.qinWinRatio)
+      .slice(0, 2);
+  }, [predictions]);
+
   if (!raceDetail) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -522,45 +495,127 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
         />
       </div>
 
-      {/* ── Race Structure ── */}
-      {oddsStruct && oddsStruct.raceTypeCode !== "UNKNOWN" && (
-        <OddsStructureBanner oddsStructure={oddsStruct} />
-      )}
-
-      {/* ── Two-col grid: Charts ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-        {/* Odds Movement Chart */}
-        <div className="bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              📈 賠率走勢（歷史快照）
-            </h3>
-            <span className="text-xs text-slate-500">隔夜 → 即時</span>
-          </div>
-          <OddsMovementChart predictions={predictions} />
-          <p className="text-xs text-slate-600 mt-2">
-            * 賠率向下 = 市場看好（資金湧入）
-          </p>
+      {/* ── Combined Chart: Odds Structure & Investment ── */}
+      <div className="bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+            💵 賽局結構與資金堆疊分析
+          </h3>
+          <span className="text-xs text-slate-500">
+            {isPreRace ? "預估（賽前）" : "實時彩池"}
+          </span>
         </div>
 
-        {/* Investment Ranking */}
-        <div className="bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              💵 獨贏 / 連贏 資金堆疊分析
-            </h3>
-            <span className="text-xs text-slate-500">
-              {isPreRace ? "預估（賽前）" : "實時彩池"}
-            </span>
+        {/* 1. Odds Structure Banner */}
+        {oddsStruct && oddsStruct.raceTypeCode !== "UNKNOWN" && (
+          <div className="mb-6">
+            <OddsStructureBanner oddsStructure={oddsStruct} />
           </div>
-          <InvestmentRankingChart predictions={predictions} />
-          <p className="text-xs text-slate-600 mt-2 flex gap-4">
-            <span><span className="inline-block w-3 h-3 bg-[#fcd34d] mr-1"></span>獨贏 WIN</span>
-            <span><span className="inline-block w-3 h-3 bg-[#fed7aa] mr-1"></span>連贏 QIN</span>
-            <span><span className="inline-block w-3 h-3 bg-[#ef4444] rounded-full mr-1"></span>大戶落飛</span>
-            <span><span className="inline-block w-3 h-3 bg-white rounded-full mr-1"></span>AI首選</span>
-          </p>
+        )}
+
+        {/* 2. Investment Stacked Bar Chart */}
+        <InvestmentRankingChart predictions={predictions} oddsStructure={oddsStruct} />
+        
+        <p className="text-xs text-slate-600 mt-4 flex gap-4 flex-wrap">
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#fcd34d] mr-1"></span>獨贏 WIN</span>
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#fed7aa] mr-1"></span>連贏 QIN</span>
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#ef4444] rounded-full mr-1"></span>大戶落飛</span>
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-white rounded-full mr-1"></span>AI首選</span>
+          <span className="flex items-center"><span className="text-[#fcd34d] font-bold mr-1">大熱</span>賽局四大熱門</span>
+        </p>
+
+        {/* ── 黃金三步指南 (Golden Three Steps Guide) ── */}
+        <div className="mt-6 border-t border-[#1e293b] pt-5">
+          <h4 className="text-xs font-bold text-slate-300 mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>💡</span> 實戰看盤「黃金三步」
+            </div>
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Step 1 */}
+            <div className="bg-[#131b2b] rounded-lg p-3 border border-[#2a3352]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-blue-900/50 text-blue-400 text-[10px] font-bold px-1.5 py-0.5 rounded">STEP 1</span>
+                <span className="text-xs font-bold text-slate-200">先定調：看左上角賽局</span>
+              </div>
+              <ul className="text-[10px] text-slate-400 space-y-1.5 pl-1">
+                <li className="flex items-start gap-1.5">
+                  <span className="text-emerald-400 mt-0.5">●</span>
+                  <span><span className="text-emerald-400 font-bold">馬膽局</span>：找一匹穩膽，尋找冷門配腳</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-blue-400 mt-0.5">●</span>
+                  <span><span className="text-blue-400 font-bold">分立局</span>：提防大熱互殺，找半冷門AI首選</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-red-400 mt-0.5">●</span>
+                  <span><span className="text-red-400 font-bold">混亂局</span>：放棄大熱，找AI白點或大戶紅點博大霧</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-[#131b2b] rounded-lg p-3 border border-[#2a3352]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-amber-900/50 text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded">STEP 2</span>
+                <span className="text-xs font-bold text-slate-200">找異常：看柱體比例</span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed mb-2">
+                尋找<span className="text-yellow-400 font-medium">「獨贏黃色短，但連贏橘色特別長」</span>的馬。
+              </p>
+              <div className="flex items-end gap-2 mt-2 h-10 border-l border-b border-slate-700 pl-2 pb-1 relative">
+                <div className="w-4 bg-[#fcd34d] h-3 absolute bottom-1 left-3"></div>
+                <div className="w-4 bg-[#fed7aa] h-8 absolute bottom-4 left-3 rounded-t-sm"></div>
+                <span className="text-[9px] text-slate-500 absolute bottom-2 left-9">QIN異常溢出，幕後搏殺位</span>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-[#131b2b] rounded-lg p-3 border border-[#2a3352]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-purple-900/50 text-purple-400 text-[10px] font-bold px-1.5 py-0.5 rounded">STEP 3</span>
+                <span className="text-xs font-bold text-slate-200">鎖目標：看頂端標記</span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                在右半部（10倍以上半冷門/冷門區）尋找標記：
+              </p>
+              <div className="mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-white border border-slate-500 flex items-center justify-center text-[8px] font-bold text-black">8</span>
+                  <span className="text-[10px] text-slate-300">AI 首選 (勝率高估)，必作配腳</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-red-500 border border-red-700 flex items-center justify-center text-[8px] font-bold text-white">3</span>
+                  <span className="text-[10px] text-slate-300">大戶落飛 (急跌≥30%)，小注博冷</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* QIN 異常溢出 推薦區塊 */}
+          {qinOverflows.length > 0 && (
+            <div className="mt-4 p-3 bg-amber-950/20 border border-amber-700/30 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-amber-400 text-xs font-bold flex items-center gap-1">
+                  <span className="animate-pulse">🔥</span> 系統偵測：QIN 異常溢出 (幕後搏殺位)
+                </span>
+                <span className="text-[10px] text-slate-400">連贏資金比例大幅高於獨贏，可能有內幕信心</span>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                {qinOverflows.map((horse) => (
+                  <div key={horse.runnerNumber} className="flex items-center gap-2 bg-[#0d1421] border border-amber-900/50 px-3 py-1.5 rounded-md">
+                    <span className="w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold">
+                      {horse.runnerNumber}
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-200">賠率: {horse.winOdds}</span>
+                      <span className="text-[10px] text-amber-400">Q/W 比例: {(horse.qinWinRatio).toFixed(1)}x</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
