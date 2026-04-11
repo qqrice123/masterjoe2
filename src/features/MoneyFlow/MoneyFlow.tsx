@@ -713,7 +713,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
               </span>
             )}
           </h3>
-          <span className="text-xs text-slate-500">賠率下跌 ≥ 30% 觸發</span>
+          <span className="text-xs text-slate-500">賠率下跌 ≥ 20% 觸發</span>
         </div>
         <AlertFeed predictions={predictions} />
       </div>
