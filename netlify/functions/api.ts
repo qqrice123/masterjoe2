@@ -485,20 +485,31 @@ export const handler: Handler = async (event) => {
 
       // ── Step 2: QIN odds (for per-horse aggregation) ───────────────────
       let qinOddsMap: Record<string, number> = {}
+      let qplOddsMap: Record<string, number> = {}
       try {
         const qinOddsResponse: any = await hkjcClient.request(horseOddsQuery, {
           date: meeting.date,
           venueCode: meeting.venueCode,
           raceNo,
-          oddsTypes: ["QIN"],
+          oddsTypes: ["QIN", "QPL"],
         })
-        const qinPool = (qinOddsResponse.raceMeetings[0]?.pmPools || []).find(
-          (p: any) => p.oddsType === "QIN"
-        )
+        const pools = qinOddsResponse.raceMeetings[0]?.pmPools || []
+        
+        // Parse QIN pool
+        const qinPool = pools.find((p: any) => p.oddsType === "QIN")
         if (qinPool?.oddsNodes) {
           qinPool.oddsNodes.forEach((node: any) => {
             const v = parseFloat(node.oddsValue)
             if (!isNaN(v) && v > 0) qinOddsMap[node.combString] = v
+          })
+        }
+        
+        // Parse QPL pool
+        const qplPool = pools.find((p: any) => p.oddsType === "QPL")
+        if (qplPool?.oddsNodes) {
+          qplPool.oddsNodes.forEach((node: any) => {
+            const v = parseFloat(node.oddsValue)
+            if (!isNaN(v) && v > 0) qplOddsMap[node.combString] = v
           })
         }
       } catch { /* ignore */ }
@@ -750,8 +761,9 @@ export const handler: Handler = async (event) => {
 
         // ── Pool reverse-engineering (pre-race uses 28M/20M estimate) ─────
         const DEDUCT = 0.825
-        const WIN_BASE = isPreRace ? 28_000_000 : poolsData.WIN
-        const QIN_BASE = isPreRace ? 20_000_000 : poolsData.QIN
+        const WIN_BASE = poolsData.WIN || 28_000_000 // Fallback if 0
+        const QIN_BASE = poolsData.QIN || 20_000_000 // Fallback if 0
+        const QPL_BASE = poolsData.QPL || 15_000_000 // Fallback if 0
 
         const estWinInvestment =
           hasOdds && winOdds > 0
@@ -759,20 +771,34 @@ export const handler: Handler = async (event) => {
             : null
 
         const rNo = String(r.no).padStart(2, "0")
+        
+        // Aggregate QIN Investment
         let qinSum = 0
         Object.entries(qinOddsMap).forEach(([combo, odds]) => {
           if (odds > 0 && QIN_BASE > 0) {
+            // QIN combo string e.g., "01,02" or "1,2"
             const parts = combo.split(",").map((x: string) => x.padStart(2, "0"))
             if (parts.includes(rNo)) qinSum += (QIN_BASE * DEDUCT) / odds
           }
         })
         const estQINInvestment = qinSum > 0 ? Math.round(qinSum) : null
 
+        // Aggregate QPL Investment
+        let qplSum = 0
+        Object.entries(qplOddsMap).forEach(([combo, odds]) => {
+          if (odds > 0 && QPL_BASE > 0) {
+            const parts = combo.split(",").map((x: string) => x.padStart(2, "0"))
+            if (parts.includes(rNo)) qplSum += (QPL_BASE * DEDUCT) / odds
+          }
+        })
+        const estQPLInvestment = qplSum > 0 ? Math.round(qplSum) : null
+
         let moneyAlert: "large_bet" | "drifting" | null = null
         if (oddsHistory.min30 && !isNaN(parseFloat(r.winOdds))) {
           const prev = oddsHistory.min30
           const curr = parseFloat(r.winOdds)
-          if (curr <= prev * 0.7) moneyAlert = "large_bet"
+          // 更改：賠率下跌 ≥ 20% 觸發大戶落飛警報 (原本是 30%)
+          if (curr <= prev * 0.8) moneyAlert = "large_bet"
           else if (curr >= prev * 1.2) moneyAlert = "drifting"
         }
 
@@ -825,6 +851,7 @@ export const handler: Handler = async (event) => {
           oddsHistory,
           estWinInvestment,
           estQINInvestment,
+          estQPLInvestment,
           moneyAlert,
           isTheoretical: isPreRace,
           finalPosition,
@@ -873,8 +900,10 @@ export const handler: Handler = async (event) => {
             oddsHistory: { overnight: null, min30: null, min15: null, current: "—" },
             estWinInvestment: null,
             estQINInvestment: null,
+            estQPLInvestment: null,
             moneyAlert: "steady",
             isTheoretical: true,
+            finalPosition: null,
           }]
         }
       })

@@ -25,6 +25,7 @@ interface Prediction {
   grade:             "A" | "B" | "C" | "D"
   estWinInvestment:  number | null
   estQINInvestment:  number | null
+  estQPLInvestment?: number | null
   moneyAlert?:       "large_bet" | "steady" | "drifting"
   oddsHistory:       OddsHistory
   winProbModel:      number
@@ -133,6 +134,7 @@ function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: P
       winOdds: p.winOdds,
       win: Math.round((p.estWinInvestment ?? 0) / 1000), // in K
       qin: Math.round((p.estQINInvestment ?? 0) / 1000), // in K
+      qpl: Math.round((p.estQPLInvestment ?? 0) / 1000), // in K
       qinWinRatio: p.estWinInvestment && p.estWinInvestment > 0 ? (p.estQINInvestment ?? 0) / p.estWinInvestment : 0,
       isSystemTopPick: p.runnerNumber === systemTopPick,
       isEvPick: evPicks.includes(p.runnerNumber),
@@ -203,7 +205,7 @@ function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: P
       <g>
         {/* Hot labels above the bar */}
         {hotLabel && (
-          <text x={x + width / 2} y={y - (showMarker ? 28 : 10)} textAnchor="middle" fill="#fcd34d" fontSize={10} fontWeight="bold">
+          <text x={x + width / 2} y={y - (showMarker ? 28 : 10)} textAnchor="middle" fill="#fff005" fontSize={10} fontWeight="bold">
             {hotLabel}
           </text>
         )}
@@ -240,7 +242,10 @@ function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: P
         <Tooltip
           cursor={{ fill: '#1e293b', opacity: 0.4 }}
           contentStyle={{ background: "#0f1117", border: "1px solid #2a3352", borderRadius: 8, fontSize: 12 }}
-          formatter={(value: any, name: string) => [`HK$${value}K`, name === "win" ? "獨贏 (WIN)" : "連贏 (QIN)"]}
+          formatter={(value: any, name: string) => [
+            `HK$${value}K`, 
+            name === "win" ? "獨贏 (WIN)" : name === "qin" ? "連贏 (QIN)" : "位置Q (QPL)"
+          ]}
           labelFormatter={(label) => `馬號: #${label}`}
         />
         
@@ -248,22 +253,31 @@ function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: P
         <Bar 
           dataKey="win" 
           stackId="a" 
-          fill="#fcd34d" /* Light orange/yellow for WIN */
+          fill="#fff005" /* WIN #fff005 */
           radius={[0, 0, 2, 2]} 
         >
           {data.map((entry, index) => (
-            <Cell key={`cell-win-${index}`} fill={entry.moneyAlert === "large_bet" ? "#f59e0b" : "#fcd34d"} />
+            <Cell key={`cell-win-${index}`} fill={entry.moneyAlert === "large_bet" ? "#ccb800" : "#fff005"} />
           ))}
         </Bar>
         <Bar 
           dataKey="qin" 
           stackId="a" 
-          fill="#fed7aa" /* Lighter orange for QIN */
+          fill="#ff9205" /* QIN #ff9205 */
+        >
+          {data.map((entry, index) => (
+             <Cell key={`cell-qin-${index}`} fill={entry.moneyAlert === "large_bet" ? "#cc7000" : "#ff9205"} />
+          ))}
+        </Bar>
+        <Bar 
+          dataKey="qpl" 
+          stackId="a" 
+          fill="#f953f7" /* QPL #f953f7 */
           radius={[2, 2, 0, 0]} 
           label={renderCustomBarLabel}
         >
           {data.map((entry, index) => (
-             <Cell key={`cell-qin-${index}`} fill={entry.moneyAlert === "large_bet" ? "#fdba74" : "#fed7aa"} />
+             <Cell key={`cell-qpl-${index}`} fill={entry.moneyAlert === "large_bet" ? "#cc36cc" : "#f953f7"} />
           ))}
         </Bar>
       </BarChart>
@@ -367,6 +381,7 @@ function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; total
             <th className="text-right py-2 px-2 font-normal">WIN估算</th>
             <th className="text-right py-2 px-2 font-normal">市佔%</th>
             <th className="text-right py-2 px-2 font-normal">QIN估算</th>
+            <th className="text-right py-2 px-2 font-normal">QPL估算</th>
             <th className="text-right py-2 pl-2 font-normal">狀態</th>
           </tr>
         </thead>
@@ -412,17 +427,20 @@ function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; total
                     </span>
                   )}
                 </td>
-                <td className="text-right py-2 px-2 font-mono text-slate-400">
+                <td className="text-right py-2 px-2 font-mono text-[#05b0ff]">
                   {p.placeOdds === "—" ? "—" : p.placeOdds}
                 </td>
-                <td className="text-right py-2 px-2 font-mono text-blue-300">
+                <td className="text-right py-2 px-2 font-mono text-[#fff005]">
                   {p.estWinInvestment ? `$${fmt(p.estWinInvestment)}` : "—"}
                 </td>
                 <td className="text-right py-2 px-2 text-slate-400">
                   {p.estWinInvestment ? pct(p.estWinInvestment, totalWin * 0.825) : "—"}
                 </td>
-                <td className="text-right py-2 px-2 font-mono text-purple-300">
+                <td className="text-right py-2 px-2 font-mono text-[#ff9205]">
                   {p.estQINInvestment ? `$${fmt(p.estQINInvestment)}` : "—"}
+                </td>
+                <td className="text-right py-2 px-2 font-mono text-[#f953f7]">
+                  {p.estQPLInvestment ? `$${fmt(p.estQPLInvestment)}` : "—"}
                 </td>
                 <td className="text-right py-2 pl-2">
                   {isLarge ? (
@@ -462,18 +480,21 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
     p => p.moneyAlert === "large_bet" || p.moneyAlert === "drifting"
   ).length
 
-  // Find Top 2 QIN Overflow (where QIN ratio to WIN is highest, and has minimum investment to filter noise)
+  // Find Top 2 QIN/QPL Overflow (where QIN or QPL ratio to WIN is highest, and has minimum investment to filter noise)
   const qinOverflows = useMemo(() => {
     return predictions
       .filter(p => !String(p.runnerNumber).startsWith("R") && (p.estWinInvestment ?? 0) > 10000)
       .map(p => {
         const win = (p.estWinInvestment ?? 0) / 1000;
         const qin = (p.estQINInvestment ?? 0) / 1000;
+        const qpl = (p.estQPLInvestment ?? 0) / 1000;
         const qinWinRatio = win > 0 ? qin / win : 0;
-        return { runnerNumber: p.runnerNumber, winOdds: p.winOdds, win, qin, qinWinRatio };
+        const qplWinRatio = win > 0 ? qpl / win : 0;
+        const maxRatio = Math.max(qinWinRatio, qplWinRatio);
+        return { runnerNumber: p.runnerNumber, winOdds: p.winOdds, win, qin, qpl, qinWinRatio, qplWinRatio, maxRatio };
       })
-      .filter(d => d.qin > d.win * 1.2) // QIN > 1.2x WIN
-      .sort((a, b) => b.qinWinRatio - a.qinWinRatio)
+      .filter(d => d.maxRatio > 1.2) // QIN or QPL > 1.2x WIN
+      .sort((a, b) => b.maxRatio - a.maxRatio)
       .slice(0, 2);
   }, [predictions]);
 
@@ -494,25 +515,25 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
         <PoolBar
           label="獨贏 WIN" icon="🏆"
           amount={pools?.WIN ?? 0}
-          color={pools?.WIN ? "text-blue-300" : "text-slate-500"}
+          color={pools?.WIN ? "text-[#fff005]" : "text-slate-500"}
           note={isPreRace ? "預估 ~28M" : undefined}
         />
         <PoolBar
           label="位置 PLA" icon="🥈"
           amount={pools?.PLA ?? 0}
-          color="text-slate-300"
+          color="text-[#05b0ff]"
           note={isPreRace ? "賽前" : undefined}
         />
         <PoolBar
           label="連贏 QIN" icon="🔗"
           amount={pools?.QIN ?? 0}
-          color="text-purple-300"
+          color="text-[#ff9205]"
           note={isPreRace ? "預估 ~20M" : undefined}
         />
         <PoolBar
           label="位置Q QPL" icon="🎯"
           amount={pools?.QPL ?? 0}
-          color="text-amber-300"
+          color="text-[#f953f7]"
         />
       </div>
 
@@ -538,12 +559,13 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
         <InvestmentRankingChart predictions={predictions} oddsStructure={oddsStruct} />
         
         <p className="text-xs text-slate-600 mt-4 flex gap-4 flex-wrap">
-          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#fcd34d] mr-1"></span>獨贏 WIN</span>
-          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#fed7aa] mr-1"></span>連贏 QIN</span>
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#fff005] mr-1"></span>獨贏 WIN</span>
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#ff9205] mr-1"></span>連贏 QIN</span>
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#f953f7] mr-1"></span>位置Q QPL</span>
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#ef4444] rounded-full mr-1"></span>大戶落飛</span>
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1"></span>AI系統首選</span>
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#f472b6] rounded-full mr-1"></span>正EV馬</span>
-          <span className="flex items-center"><span className="text-[#fcd34d] font-bold mr-1">大熱</span>賽局四大熱門</span>
+          <span className="flex items-center"><span className="text-[#fff005] font-bold mr-1">大熱</span>賽局四大熱門</span>
         </p>
 
         {/* ── 黃金三步指南 (Golden Three Steps Guide) ── */}
@@ -583,12 +605,13 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
                 <span className="text-xs font-bold text-slate-200">找異常：看柱體比例</span>
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed mb-2">
-                尋找<span className="text-yellow-400 font-medium">「獨贏黃色短，但連贏橘色特別長」</span>的馬。
+                尋找<span className="text-orange-400 font-medium">「WIN黃柱短，但QIN橘柱或QPL紫柱特別長」</span>的馬。
               </p>
               <div className="flex items-end gap-2 mt-2 h-10 border-l border-b border-slate-700 pl-2 pb-1 relative">
-                <div className="w-4 bg-[#fcd34d] h-3 absolute bottom-1 left-3"></div>
-                <div className="w-4 bg-[#fed7aa] h-8 absolute bottom-4 left-3 rounded-t-sm"></div>
-                <span className="text-[9px] text-slate-500 absolute bottom-2 left-9">QIN異常溢出，幕後搏殺位</span>
+                <div className="w-3 bg-[#fff005] h-2 absolute bottom-1 left-2"></div>
+                <div className="w-3 bg-[#ff9205] h-4 absolute bottom-3 left-2"></div>
+                <div className="w-3 bg-[#f953f7] h-4 absolute bottom-7 left-2 rounded-t-sm"></div>
+                <span className="text-[9px] text-slate-500 absolute bottom-2 left-7">連贏/位置Q異常溢出，幕後搏殺位</span>
               </div>
             </div>
 
@@ -618,14 +641,14 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
             </div>
           </div>
           
-          {/* QIN 異常溢出 推薦區塊 (僅限混亂局顯示) */}
+          {/* QIN/QPL 異常溢出 推薦區塊 (僅限混亂局顯示) */}
           {oddsStruct?.raceTypeCode === "CHAOTIC" && qinOverflows.length > 0 && (
             <div className="mt-4 p-3 bg-amber-950/20 border border-amber-700/30 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-amber-400 text-xs font-bold flex items-center gap-1">
-                  <span className="animate-pulse">🔥</span> 系統偵測：QIN 異常溢出 (混亂局幕後搏殺位)
+                  <span className="animate-pulse">🔥</span> 系統偵測：QIN/QPL 異常溢出 (混亂局幕後搏殺位)
                 </span>
-                <span className="text-[10px] text-slate-400">連贏資金比例大幅高於獨贏，可能有內幕信心</span>
+                <span className="text-[10px] text-slate-400">連贏/位置Q資金比例大幅高於獨贏，可能有內幕信心</span>
               </div>
               <div className="flex gap-3 flex-wrap">
                 {qinOverflows.map((horse) => (
@@ -635,7 +658,12 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
                     </span>
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-slate-200">賠率: {horse.winOdds}</span>
-                      <span className="text-[10px] text-amber-400">Q/W 比例: {(horse.qinWinRatio).toFixed(1)}x</span>
+                      <span className="text-[10px] text-amber-400">
+                        {horse.qinWinRatio >= horse.qplWinRatio 
+                          ? `Q/W 比例: ${horse.qinWinRatio.toFixed(1)}x` 
+                          : `QPL/W 比例: ${horse.qplWinRatio.toFixed(1)}x`
+                        }
+                      </span>
                     </div>
                   </div>
                 ))}

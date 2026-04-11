@@ -179,19 +179,19 @@ export default function App() {
             </span>
           )}
 
-          {/* Refresh indicator */}
+          {/* Refresh indicator (Desktop) */}
           <button
             onClick={() => refetch()}
-            className="p-2 text-slate-400 hover:text-blue-400 transition-all duration-200 active:scale-95 rounded-lg hover:bg-slate-800"
+            className="hidden md:block p-2 text-slate-400 hover:text-blue-400 transition-all duration-200 active:scale-95 rounded-lg hover:bg-slate-800"
             aria-label="手動刷新"
           >
             <RefreshCw size={15} className={isFetching ? "animate-spin text-blue-400" : ""} />
           </button>
 
-          {/* Auto-refresh toggle */}
+          {/* Auto-refresh toggle (Desktop) */}
           <button
             onClick={() => setAutoRefresh(v => !v)}
-            className={`text-xs px-2.5 py-1 rounded-full border transition-all duration-200 active:scale-95 shadow-sm ${
+            className={`hidden md:block text-xs px-2.5 py-1 rounded-full border transition-all duration-200 active:scale-95 shadow-sm ${
               autoRefresh
                 ? "border-blue-600 text-blue-400 bg-blue-950/50 hover:bg-blue-900/60 hover:border-blue-500"
                 : "border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/50"
@@ -342,6 +342,33 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* ── Mobile Floating Controls ─────────────────────────────────── */}
+      <div className="md:hidden fixed bottom-20 right-4 z-40 flex flex-col gap-3 items-end">
+        {/* Mobile Refresh Button */}
+        <button
+          onClick={() => refetch()}
+          className="p-3 bg-slate-800/90 backdrop-blur border border-slate-700 text-slate-300 rounded-full shadow-lg transition-all active:scale-95 flex items-center justify-center"
+          aria-label="手動刷新"
+        >
+          <RefreshCw size={20} className={isFetching ? "animate-spin text-blue-400" : ""} />
+        </button>
+
+        {/* Mobile Auto-refresh toggle */}
+        <button
+          onClick={() => setAutoRefresh(v => !v)}
+          className={`flex items-center justify-center w-12 h-12 rounded-full border shadow-lg backdrop-blur transition-all duration-200 active:scale-95 ${
+            autoRefresh
+              ? "border-blue-500/50 text-blue-400 bg-blue-950/90"
+              : "border-slate-700/50 text-slate-400 bg-slate-800/90"
+          }`}
+        >
+          <div className="flex flex-col items-center justify-center leading-none">
+            <span className="text-[10px] font-medium opacity-80 mb-0.5">自動</span>
+            <span className="text-xs font-bold">{autoRefresh ? 'ON' : 'OFF'}</span>
+          </div>
+        </button>
+      </div>
 
       {/* ── Mobile Bottom Tab Bar ────────────────────────────────────── */}
       <nav className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-[#0f1117]/95 backdrop-blur border-t border-slate-800">

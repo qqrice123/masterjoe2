@@ -22,6 +22,8 @@ interface Prediction {
   kellyFraction: number
   estWinInvestment: number | null
   estQINInvestment: number | null
+  estQPLInvestment?: number | null
+  finalPosition?: number | string
   moneyAlert?: "large_bet" | "steady" | "drifting"
   conditionLabel: string
   combatAdvice: string
@@ -183,7 +185,7 @@ function EVMatrixTable({ predictions, isPreRace }: { predictions: Prediction[]; 
       <table className="w-full text-sm min-w-[900px]">
         <thead>
           <tr className="bg-slate-900/80 border-b border-slate-700/50">
-            {["#", "馬名", "評級", "狀態", "系統勝率", "即時賠率", "推算投注額", "QIN聚合", "EV值", "建議", "⚠️"].map(
+            {["#", "馬名", "評級", "狀態", "系統勝率", "即時賠率", "推算投注額", "QIN聚合", "QPL聚合", "EV值", "建議", "⚠️"].map(
               (h) => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-medium text-slate-400 whitespace-nowrap">
                   {h}
@@ -259,15 +261,22 @@ function EVMatrixTable({ predictions, isPreRace }: { predictions: Prediction[]; 
 
                 {/* 推算投注額 */}
                 <td className="px-3 py-3 font-mono text-xs whitespace-nowrap">
-                  <span className={p.estWinInvestment ? (p.isTheoretical ? "text-slate-500" : "text-slate-300") : "text-slate-700"}>
+                  <span className={p.estWinInvestment ? (p.isTheoretical ? "text-slate-500" : "text-[#fff005]") : "text-slate-700"}>
                     {fmtMoney(p.estWinInvestment, p.isTheoretical)}
                   </span>
                 </td>
 
                 {/* QIN聚合 */}
                 <td className="px-3 py-3 font-mono text-xs whitespace-nowrap">
-                  <span className={p.estQINInvestment ? (p.isTheoretical ? "text-slate-500" : "text-blue-300") : "text-slate-700"}>
+                  <span className={p.estQINInvestment ? (p.isTheoretical ? "text-slate-500" : "text-[#ff9205]") : "text-slate-700"}>
                     {fmtMoney(p.estQINInvestment, p.isTheoretical)}
+                  </span>
+                </td>
+
+                {/* QPL聚合 */}
+                <td className="px-3 py-3 font-mono text-xs whitespace-nowrap">
+                  <span className={p.estQPLInvestment ? (p.isTheoretical ? "text-slate-500" : "text-[#f953f7]") : "text-slate-700"}>
+                    {fmtMoney(p.estQPLInvestment, p.isTheoretical)}
                   </span>
                 </td>
 

@@ -83,6 +83,7 @@ export interface RunnerPrediction {
   oddsHistory: OddsHistory
   estWinInvestment: number | null
   estQINInvestment: number | null
+  estQPLInvestment: number | null
   moneyAlert?: MoneyAlert
   isTheoretical: boolean
   combatAdvice?: string

@@ -37,7 +37,8 @@ function AlertCell({ p }: { p: Prediction }) {
     const current   = parseFloat(String(hist.current));
     if (!isNaN(overnight) && !isNaN(current)) {
       const drop = (overnight - current) / overnight;
-      if (drop >= 0.30) tags.push("🐋大戶落飛");
+      // 更改：賠率下跌 ≥ 20% 觸發大戶落飛警報 (原本是 30%)
+      if (drop >= 0.20) tags.push("🐋大戶落飛");
       else if (drop <= -0.20) tags.push("📉資金撤離");
     }
   }
@@ -109,7 +110,7 @@ export function RaceView() {
           <table className="w-full text-xs min-w-[900px]">
             <thead>
               <tr className="text-slate-400 bg-[#1c2333] text-left">
-                {["#","馬名","評級","狀態","系統勝率","即時賠率","推算投注額","QIN聚合","EV值","時間差(s)","⚠️警報"].map(h => (
+                {["#","馬名","評級","狀態","系統勝率","即時賠率","推算投注額","QIN聚合","QPL聚合","EV值","時間差(s)","⚠️警報"].map(h => (
                   <th key={h} className="px-3 py-2 font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -142,11 +143,14 @@ export function RaceView() {
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 font-mono text-emerald-400">
+                  <td className="px-3 py-2.5 font-mono text-[#fff005]">
                     {formatMillion(p.estWinInvestment)}
                   </td>
-                  <td className="px-3 py-2.5 font-mono text-blue-400">
+                  <td className="px-3 py-2.5 font-mono text-[#ff9205]">
                     {formatMillion(p.estQINInvestment)}
+                  </td>
+                  <td className="px-3 py-2.5 font-mono text-[#f953f7]">
+                    {formatMillion(p.estQPLInvestment)}
                   </td>
                   <td className="px-3 py-2.5">
                     <EVBadge ev={p.expectedValue} />

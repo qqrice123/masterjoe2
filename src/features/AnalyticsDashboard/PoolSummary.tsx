@@ -7,11 +7,11 @@ function fmt(n?: number) {
 
 export function PoolSummary({ pools }: Props) {
   const items = [
-    { label: "獨贏 WIN",  value: pools.WIN,  color: "text-emerald-400" },
-    { label: "位置 PLA",  value: pools.PLA,  color: "text-blue-400" },
-    { label: "連贏 QIN",  value: pools.QIN,  color: "text-purple-400" },
-    { label: "位置Q QPL", value: pools.QPL,  color: "text-yellow-400" },
-    { label: "孖寶 DBL",  value: pools.DBL,  color: "text-orange-400" },
+    { label: "獨贏 WIN",  value: pools.WIN,  color: "text-[#fff005]" },
+    { label: "位置 PLA",  value: pools.PLA,  color: "text-[#05b0ff]" },
+    { label: "連贏 QIN",  value: pools.QIN,  color: "text-[#ff9205]" },
+    { label: "位置Q QPL", value: pools.QPL,  color: "text-[#f953f7]" },
+    { label: "孖寶 DBL",  value: pools.DBL,  color: "text-emerald-400" },
   ];
   return (
     <div className="bg-[#161b27] rounded-xl border border-[#2a3352] px-4 py-3">

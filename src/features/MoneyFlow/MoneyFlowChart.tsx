@@ -35,7 +35,7 @@ export function MoneyFlowChart({ predictions }: Props) {
     if (!hist) return false;
     const drop = (parseFloat(String(hist.overnight)) - parseFloat(String(hist.current))) /
                   parseFloat(String(hist.overnight));
-    return drop >= 0.30;
+    return drop >= 0.20;
   });
 
   return (

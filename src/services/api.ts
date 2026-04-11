@@ -31,9 +31,9 @@ export interface Prediction {
     min15: number | string;     current: number | string;
   };
   // ── NEW: 彩池投注額估算 ──
-  estWinInvestment?: number;   // WIN Pool 逆向推算（港幣）
-  estQINInvestment?: number;   // QIN 聚合資金（港幣）
-  estQPLInvestment?: number;   // QPL 聚合資金（港幣）
+  estWinInvestment?: number;
+  estQINInvestment?: number;
+  estQPLInvestment?: number;
   moneyAlert?: "large_bet" | "steady" | "drifting";
   finalPosition?: number | null; // 賽果名次
 }
