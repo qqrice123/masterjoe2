@@ -1,5 +1,6 @@
 // src/features/AnalyticsDashboard/index.tsx
 
+import { memo, useMemo } from "react"
 import { OddsStructureBanner } from "./OddsStructureBanner"
 
 interface Prediction {
@@ -177,7 +178,39 @@ function PoolSummary({ pools, isPreRace }: { pools: RaceDetail["pools"]; isPreRa
 
 // ── Main EV Matrix Table ───────────────────────────────────────────────────
 
-function EVMatrixTable({ predictions, isPreRace }: { predictions: Prediction[]; isPreRace: boolean }) {
+function EVMatrixTable({ predictions, isPreRace, oddsStructure }: { predictions: Prediction[]; isPreRace: boolean; oddsStructure?: OddsStructure }) {
+  const systemTopPick = useMemo(() => {
+    const validRunners = predictions.filter(p => !String(p.runnerNumber).startsWith("R"));
+    if (validRunners.length === 0) return undefined;
+
+    const raceType = oddsStructure?.raceTypeCode;
+    
+    // 計算每匹馬的 QIN/QPL 柱體溢出比例 (maxRatio)
+    const runnersWithRatio = validRunners.map(p => {
+      const win = (p.estWinInvestment ?? 0);
+      const qin = (p.estQINInvestment ?? 0);
+      const qpl = (p.estQPLInvestment ?? 0);
+      const qinWinRatio = win > 0 ? qin / win : 0;
+      const qplWinRatio = win > 0 ? qpl / win : 0;
+      const maxRatio = Math.max(qinWinRatio, qplWinRatio);
+      return { ...p, maxRatio };
+    });
+
+    if (raceType === "CHAOTIC") {
+      const chaoticPicks = runnersWithRatio
+        .filter(p => p.expectedValue > 0)
+        .sort((a, b) => b.maxRatio - a.maxRatio);
+      if (chaoticPicks.length > 0) return chaoticPicks[0].runnerNumber;
+    } else if (raceType === "BANKER" || raceType === "SPLIT") {
+      const negativeEvPicks = runnersWithRatio
+        .filter(p => p.expectedValue < 0)
+        .sort((a, b) => b.maxRatio - a.maxRatio);
+      if (negativeEvPicks.length > 0) return negativeEvPicks[0].runnerNumber;
+    }
+    
+    return [...validRunners].sort((a, b) => a.modelOdds - b.modelOdds)[0]?.runnerNumber;
+  }, [predictions, oddsStructure?.raceTypeCode]);
+
   if (!predictions?.length) return null
 
   return (
@@ -197,6 +230,8 @@ function EVMatrixTable({ predictions, isPreRace }: { predictions: Prediction[]; 
         <tbody>
           {predictions.map((p, i) => {
             const isReserve = String(p.runnerNumber).startsWith("R")
+            const isSystemTopPick = p.runnerNumber === systemTopPick;
+
             return (
               <tr
                 key={p.runnerNumber}
@@ -208,8 +243,13 @@ function EVMatrixTable({ predictions, isPreRace }: { predictions: Prediction[]; 
                 `}
               >
                 {/* # */}
-                <td className="px-3 py-3 font-mono font-bold text-slate-300 whitespace-nowrap">
-                  {p.runnerNumber}
+                <td className="px-3 py-3 font-mono font-bold text-slate-300 whitespace-nowrap relative">
+                  {isSystemTopPick && (
+                    <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#7dd3fc]" title="AI 系統首選"></span>
+                  )}
+                  <span className={isSystemTopPick ? "ml-2" : ""}>
+                    {p.runnerNumber}
+                  </span>
                   {p.draw > 0 && (
                     <span className="ml-1 text-xs text-slate-500">({p.draw})</span>
                   )}
@@ -217,7 +257,14 @@ function EVMatrixTable({ predictions, isPreRace }: { predictions: Prediction[]; 
 
                 {/* 馬名 */}
                 <td className="px-3 py-3">
-                  <div className="font-medium text-slate-200 whitespace-nowrap">{p.runnerName}</div>
+                  <div className="font-medium text-slate-200 flex items-center gap-1.5">
+                    {p.runnerName}
+                    {isSystemTopPick && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#7dd3fc]/20 text-[#7dd3fc] border border-[#7dd3fc]/30 whitespace-nowrap">
+                        AI首選
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-slate-500 whitespace-nowrap">
                     {p.jockey} / {p.trainer}
                   </div>
@@ -353,7 +400,7 @@ export function AnalyticsDashboard({ raceDetail, isLoading }: Props) {
             </span>
           )}
         </p>
-        <EVMatrixTable predictions={predictions} isPreRace={isPreRace} />
+        <EVMatrixTable predictions={predictions} isPreRace={isPreRace} oddsStructure={oddsStructure} />
       </div>
 
     </div>
