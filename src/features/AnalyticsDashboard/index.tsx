@@ -72,7 +72,7 @@ interface RaceDetail {
   isPreRace: boolean
   predictions: Prediction[]
   oddsStructure?: OddsStructure
-  pools?: { WIN: number; PLA: number; QIN: number; QPL: number } | null
+  pools?: { WIN: number; PLA: number; QIN: number; QPL: number; DBL?: number } | null
 }
 
 interface Props {
@@ -147,28 +147,28 @@ function SkeletonTable() {
 // ── Pool Summary ───────────────────────────────────────────────────────────
 
 function PoolSummary({ pools, isPreRace }: { pools: RaceDetail["pools"]; isPreRace: boolean }) {
-  const items = pools
-    ? [
-        { label: "獨贏 WIN", val: pools.WIN },
-        { label: "位置 PLA", val: pools.PLA },
-        { label: "連贏 QIN", val: pools.QIN },
-        { label: "位置Q QPL", val: pools.QPL },
-      ]
-    : [
-        { label: "獨贏 WIN", val: null },
-        { label: "位置 PLA", val: null },
-        { label: "連贏 QIN", val: null },
-        { label: "位置Q QPL", val: null },
-      ]
+  const items = [
+    { label: "獨贏 WIN",  val: pools?.WIN, color: pools?.WIN ? "text-[#fff005]" : "text-slate-500", icon: "🏆", note: isPreRace ? "預估 ~28M" : undefined },
+    { label: "位置 PLA",  val: pools?.PLA, color: "text-[#05b0ff]", icon: "🥈", note: isPreRace ? "賽前" : undefined },
+    { label: "連贏 QIN",  val: pools?.QIN, color: "text-[#ff9205]", icon: "🔗", note: isPreRace ? "預估 ~20M" : undefined },
+    { label: "位置Q QPL", val: pools?.QPL, color: "text-[#f953f7]", icon: "🎯" },
+    { label: "孖寶 DBL",  val: pools?.DBL, color: "text-cyan-400",  icon: "⛓️", note: "跨場次資金" },
+  ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-      {items.map(({ label, val }) => (
-        <div key={label} className="bg-slate-900/60 border border-slate-700/50 rounded-lg p-3 text-center">
-          <p className="text-xs text-slate-500 mb-1">{label}</p>
-          <p className={`text-sm font-bold ${val ? "text-slate-200" : "text-slate-600"}`}>
-            {val ? fmtMoney(val) : isPreRace ? "未開盤" : "—"}
-          </p>
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      {items.map(({ label, val, color, icon, note }) => (
+        <div key={label} className="flex items-center gap-3 bg-[#1c2333] rounded-xl p-3 border border-[#2a3352]">
+          <div className="text-2xl w-10 text-center">{icon}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs text-slate-400">{label}</span>
+              {note && <span className="text-xs text-slate-600">{note}</span>}
+            </div>
+            <div className={`text-lg font-bold font-mono ${color}`}>
+              {val && val > 0 ? `HK$${(val >= 1_000_000 ? (val / 1_000_000).toFixed(2) + 'M' : val >= 1_000 ? (val / 1_000).toFixed(0) + 'K' : val)}` : "—"}
+            </div>
+          </div>
         </div>
       ))}
     </div>
