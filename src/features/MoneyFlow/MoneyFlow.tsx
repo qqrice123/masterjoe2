@@ -168,8 +168,8 @@ function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: P
 
     // Determine markers
     const showMarker = item.moneyAlert === "large_bet" || item.isTopPick;
-    const markerColor = item.moneyAlert === "large_bet" ? "#ef4444" : "#ffffff";
-    const textColor = item.moneyAlert === "large_bet" ? "#ffffff" : "#000000";
+    const markerColor = item.moneyAlert === "large_bet" ? "#ef4444" : "#7dd3fc";
+    const textColor = item.moneyAlert === "large_bet" ? "#ffffff" : "#0f1117";
     
     // Determine hot label
     let hotLabel = "";
@@ -520,7 +520,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#fcd34d] mr-1"></span>獨贏 WIN</span>
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#fed7aa] mr-1"></span>連贏 QIN</span>
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#ef4444] rounded-full mr-1"></span>大戶落飛</span>
-          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-white rounded-full mr-1"></span>AI首選</span>
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1"></span>AI首選</span>
           <span className="flex items-center"><span className="text-[#fcd34d] font-bold mr-1">大熱</span>賽局四大熱門</span>
         </p>
 
@@ -549,7 +549,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
                 </li>
                 <li className="flex items-start gap-1.5">
                   <span className="text-red-400 mt-0.5">●</span>
-                  <span><span className="text-red-400 font-bold">混亂局</span>：放棄大熱，找AI白點或大戶紅點博大霧</span>
+                  <span><span className="text-red-400 font-bold">混亂局</span>：放棄大熱，找AI粉藍點或大戶紅點博大霧</span>
                 </li>
               </ul>
             </div>
@@ -581,7 +581,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
               </p>
               <div className="mt-2 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-white border border-slate-500 flex items-center justify-center text-[8px] font-bold text-black">8</span>
+                  <span className="w-4 h-4 rounded-full bg-[#7dd3fc] border border-[#38bdf8] flex items-center justify-center text-[8px] font-bold text-[#0f1117]">8</span>
                   <span className="text-[10px] text-slate-300">AI 首選 (勝率高估)，必作配腳</span>
                 </div>
                 <div className="flex items-center gap-2">
