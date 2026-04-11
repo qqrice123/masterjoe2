@@ -1,80 +1,9 @@
 // src/features/AnalyticsDashboard/index.tsx
 
-import { memo, useMemo } from "react"
+import { memo, useMemo, useState } from "react"
 import { OddsStructureBanner } from "./OddsStructureBanner"
-
-interface Prediction {
-  runnerNumber: string | number
-  runnerName: string
-  jockey: string
-  trainer: string
-  draw: number
-  weight: number
-  winOdds: number | string
-  placeOdds: number | string
-  score: number
-  grade: "A" | "B" | "C" | "D"
-  rating: number
-  winProbability: number
-  winProbModel: number
-  modelOdds: number
-  diffProb: number
-  expectedValue: number
-  kellyFraction: number
-  estWinInvestment: number | null
-  estQINInvestment: number | null
-  estQPLInvestment?: number | null
-  finalPosition?: number | string
-  moneyAlert?: "large_bet" | "steady" | "drifting"
-  conditionLabel: string
-  combatAdvice: string
-  combatStatus: "GO" | "CAUTION" | "SHADOW" | "AVOID"
-  isTheoretical?: boolean
-  riskFactors: string[]
-  last3Form: string
-  weightRD: number
-  timeAdvantage: number
-  statRate: number
-  ageStageLabel: string
-}
-
-interface OddsStructure {
-  raceType: "馬膽局" | "分立局" | "混亂局" | "未能判斷"
-  raceTypeCode: "BANKER" | "SPLIT" | "CHAOTIC" | "UNKNOWN"
-  od1: number
-  od2: number
-  od3: number
-  od4: number
-  od1Name?: string
-  od2Name?: string
-  od3Name?: string
-  od4Name?: string
-  od1Count?: number
-  od2Count?: number
-  od3Count?: number
-  oddsPattern?: string
-  hotCount: number
-  coldSignal: boolean
-  qinFocus: "od1_group" | "od2_od3_group" | "spread" | "unknown"
-  topBanker: string | null
-  coldCandidates: (string | number)[]
-  description: string
-  tip: string
-}
-
-interface RaceDetail {
-  raceNumber: number
-  raceName: string
-  distance: number
-  course: string
-  raceClass: string
-  going: string
-  postTime: string
-  isPreRace: boolean
-  predictions: Prediction[]
-  oddsStructure?: OddsStructure
-  pools?: { WIN: number; PLA: number; QIN: number; QPL: number; DBL?: number } | null
-}
+import { Prediction, RaceDetail, OddsStructure } from "../../services/api"
+import { aiEngine } from "../../services/aiLearning"
 
 interface Props {
   raceDetail: RaceDetail | null | undefined
@@ -178,38 +107,57 @@ function PoolSummary({ pools, isPreRace }: { pools: RaceDetail["pools"]; isPreRa
 
 // ── Main EV Matrix Table ───────────────────────────────────────────────────
 
+function AIFeedbackPanel({ predictions, oddsStructure }: { predictions: Prediction[]; oddsStructure?: OddsStructure }) {
+  const [winner, setWinner] = useState<string>("");
+  const [hasTrained, setHasTrained] = useState(false);
+
+  const handleTrain = () => {
+    if (!winner) return;
+    aiEngine.feedbackResult(predictions, oddsStructure, winner);
+    setHasTrained(true);
+    setTimeout(() => setHasTrained(false), 3000);
+  };
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="text-xl">🧠</div>
+        <div>
+          <h4 className="text-sm font-bold text-slate-200">AI 模型動態學習</h4>
+          <p className="text-xs text-slate-400">輸入賽果，讓系統自動修正特徵權重</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <select 
+          className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-1.5 outline-none"
+          value={winner}
+          onChange={e => setWinner(e.target.value)}
+        >
+          <option value="">選擇頭馬...</option>
+          {predictions.filter(p => !String(p.runnerNumber).startsWith("R")).map(p => (
+            <option key={p.runnerNumber} value={p.runnerNumber}>
+              {p.runnerNumber} - {p.runnerName}
+            </option>
+          ))}
+        </select>
+        <button 
+          onClick={handleTrain}
+          disabled={!winner || hasTrained}
+          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+            hasTrained ? "bg-emerald-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          }`}
+        >
+          {hasTrained ? "學習完成 ✅" : "提交賽果"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EVMatrixTable({ predictions, isPreRace, oddsStructure }: { predictions: Prediction[]; isPreRace: boolean; oddsStructure?: OddsStructure }) {
   const systemTopPick = useMemo(() => {
-    const validRunners = predictions.filter(p => !String(p.runnerNumber).startsWith("R"));
-    if (validRunners.length === 0) return undefined;
-
-    const raceType = oddsStructure?.raceTypeCode;
-    
-    // 計算每匹馬的 QIN/QPL 柱體溢出比例 (maxRatio)
-    const runnersWithRatio = validRunners.map(p => {
-      const win = (p.estWinInvestment ?? 0);
-      const qin = (p.estQINInvestment ?? 0);
-      const qpl = (p.estQPLInvestment ?? 0);
-      const qinWinRatio = win > 0 ? qin / win : 0;
-      const qplWinRatio = win > 0 ? qpl / win : 0;
-      const maxRatio = Math.max(qinWinRatio, qplWinRatio);
-      return { ...p, maxRatio };
-    });
-
-    if (raceType === "CHAOTIC") {
-      const chaoticPicks = runnersWithRatio
-        .filter(p => p.expectedValue > 0)
-        .sort((a, b) => b.maxRatio - a.maxRatio);
-      if (chaoticPicks.length > 0) return chaoticPicks[0].runnerNumber;
-    } else if (raceType === "BANKER" || raceType === "SPLIT") {
-      const negativeEvPicks = runnersWithRatio
-        .filter(p => p.expectedValue < 0)
-        .sort((a, b) => b.maxRatio - a.maxRatio);
-      if (negativeEvPicks.length > 0) return negativeEvPicks[0].runnerNumber;
-    }
-    
-    return [...validRunners].sort((a, b) => a.modelOdds - b.modelOdds)[0]?.runnerNumber;
-  }, [predictions, oddsStructure?.raceTypeCode]);
+    return aiEngine.getTopPick(predictions, oddsStructure);
+  }, [predictions, oddsStructure]);
 
   if (!predictions?.length) return null
 
@@ -378,6 +326,11 @@ export function AnalyticsDashboard({ raceDetail, isLoading }: Props) {
 
       {/* 1. Pool Summary */}
       <PoolSummary pools={pools} isPreRace={isPreRace} />
+
+      {/* AI Learning Feedback */}
+      {!isPreRace && oddsStructure && (
+        <AIFeedbackPanel predictions={predictions} oddsStructure={oddsStructure} />
+      )}
 
       {/* 2. Odds Structure Banner */}
       <div>

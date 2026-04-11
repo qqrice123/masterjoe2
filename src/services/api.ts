@@ -35,15 +35,47 @@ export interface Prediction {
   estQINInvestment?: number;
   estQPLInvestment?: number;
   moneyAlert?: "large_bet" | "steady" | "drifting";
-  finalPosition?: number | null; // 賽果名次
+  finalPosition?: number | null | string; // 賽果名次
+  isTheoretical?: boolean;
 }
+
+export interface OddsStructure {
+  raceType:     "馬膽局" | "分立局" | "混亂局" | "未能判斷"
+  raceTypeCode: "BANKER" | "SPLIT" | "CHAOTIC" | "UNKNOWN"
+  od1:          number
+  od2:          number
+  od3:          number
+  od4:          number
+  od1Name?: string
+  od2Name?: string
+  od3Name?: string
+  od4Name?: string
+  od1Number?: string | number
+  od2Number?: string | number
+  od3Number?: string | number
+  od4Number?: string | number
+  od1Count?:    number
+  od2Count?:    number
+  od3Count?:    number
+  hotCount:     number
+  coldSignal:   boolean
+  qinFocus:     "od1_group" | "od2_od3_group" | "spread" | "unknown"
+  topBanker:    string | null
+  coldCandidates: (string | number)[]
+  description:  string
+  tip:          string
+  oddsPattern?: string
+}
+
 export interface RaceDetail extends Race {
   date: string; track: string; going: string;
   postTime: string; meetingType: string;
   topPick: Prediction; predictions: Prediction[];
   summary: string; confidence: "HIGH" | "MEDIUM" | "LOW";
+  isPreRace?: boolean;
   // ── NEW: 彩池總額 ──
   pools?: { WIN?: number; PLA?: number; QIN?: number; QPL?: number; DBL?: number };
+  oddsStructure?: OddsStructure;
 }
 export const api = {
   getMeetings: async (): Promise<Meeting[]> => {

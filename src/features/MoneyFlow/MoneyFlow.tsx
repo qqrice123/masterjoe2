@@ -8,6 +8,8 @@ import {
 } from "recharts"
 import { OddsStructureBanner } from "../AnalyticsDashboard/OddsStructureBanner"
 import type { XAxisProps } from "recharts"
+import { aiEngine } from "../../services/aiLearning"
+import { OddsStructure, Prediction, RaceDetail } from "../../services/api"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const CHART_COLORS = {
@@ -24,77 +26,7 @@ const MIN_INVESTMENT_THRESHOLD = 10_000      // QIN 溢出最低投資門檻（�
 const QIN_OVERFLOW_RATIO       = 1.2         // QIN:WIN 比率警報門檻
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-interface OddsHistory {
-  overnight: number | null
-  min30:     number | null
-  min15:     number | null
-  current:   string | number | "—"
-}
-
-interface Prediction {
-  runnerNumber:      string | number
-  runnerName:        string
-  winOdds:           string | number | "—"
-  placeOdds?:        string | number | "—"
-  score:             number
-  grade:             "A" | "B" | "C" | "D"
-  estWinInvestment:  number | null
-  estQINInvestment:  number | null
-  estQPLInvestment?: number | null
-  moneyAlert?:       "large_bet" | "steady" | "drifting"
-  oddsHistory:       OddsHistory
-  winProbModel:      number
-  modelOdds:         number
-  expectedValue:     number
-  combatStatus:      string
-  investmentLabel:   string
-}
-
-interface PoolsData {
-  WIN: number
-  PLA: number
-  QIN: number
-  QPL: number
-  DBL: number
-}
-
-interface OddsStructure {
-  raceType:     "馬膽局" | "分立局" | "混亂局" | "未能判斷"
-  raceTypeCode: "BANKER" | "SPLIT" | "CHAOTIC" | "UNKNOWN"
-  od1:          number
-  od2:          number
-  od3:          number
-  od4:          number
-  od1Name?: string
-  od2Name?: string
-  od3Name?: string
-  od4Name?: string
-  od1Number?: string | number
-  od2Number?: string | number
-  od3Number?: string | number
-  od4Number?: string | number
-  od1Count?:    number
-  od2Count?:    number
-  od3Count?:    number
-  hotCount:     number
-  coldSignal:   boolean
-  qinFocus:     "od1_group" | "od2_od3_group" | "spread" | "unknown"
-  topBanker:    string | null
-  coldCandidates: (string | number)[]
-  description:  string
-  tip:          string
-  oddsPattern?: string
-}
-
-interface RaceDetail {
-  predictions:    Prediction[]
-  pools:          PoolsData | null
-  isPreRace:      boolean
-  oddsStructure:  OddsStructure
-  raceName:       string
-  distance:       number
-  going:          string
-}
+// Use types from api.ts
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (n: number) =>
@@ -127,43 +59,10 @@ function PoolBar({
 
 // ─── Sub-component: InvestmentRankingChart ────────────────────────────────────
 const InvestmentRankingChart = memo(function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: Prediction[], oddsStructure?: OddsStructure }) {
-  // 1. AI 系統首選 (System Top Pick) 邏輯更新
-  // - 混亂局 (CHAOTIC): 找正 EV 值中，配合 QIN/QPL 異常柱體比例最高的馬匹
-  // - 馬膽局 (BANKER) / 分立局 (SPLIT): 找最負 EV 值中，配合 QIN/QPL 異常柱體比例最高的馬匹
+  // 1. AI 系統首選 (System Top Pick) - 改由 AILearningEngine 計算
   const systemTopPick = useMemo(() => {
-    const validRunners = predictions.filter(p => !String(p.runnerNumber).startsWith("R"));
-    if (validRunners.length === 0) return undefined;
-
-    const raceType = oddsStructure?.raceTypeCode;
-    
-    // 計算每匹馬的 QIN/QPL 柱體溢出比例 (maxRatio)
-    const runnersWithRatio = validRunners.map(p => {
-      const win = (p.estWinInvestment ?? 0);
-      const qin = (p.estQINInvestment ?? 0);
-      const qpl = (p.estQPLInvestment ?? 0);
-      const qinWinRatio = win > 0 ? qin / win : 0;
-      const qplWinRatio = win > 0 ? qpl / win : 0;
-      const maxRatio = Math.max(qinWinRatio, qplWinRatio);
-      return { ...p, maxRatio };
-    });
-
-    if (raceType === "CHAOTIC") {
-      // 混亂局：正 EV (expectedValue > 0) 且 maxRatio 最高
-      const chaoticPicks = runnersWithRatio
-        .filter(p => p.expectedValue > 0)
-        .sort((a, b) => b.maxRatio - a.maxRatio);
-      if (chaoticPicks.length > 0) return chaoticPicks[0].runnerNumber;
-    } else if (raceType === "BANKER" || raceType === "SPLIT") {
-      // 馬膽局 / 分立局：最負 EV (expectedValue < 0) 且 maxRatio 最高
-      const negativeEvPicks = runnersWithRatio
-        .filter(p => p.expectedValue < 0)
-        .sort((a, b) => b.maxRatio - a.maxRatio);
-      if (negativeEvPicks.length > 0) return negativeEvPicks[0].runnerNumber;
-    }
-    
-    // Fallback: 如果沒有符合條件的，或者未分類的賽局，退回原本的最強模型賠率邏輯
-    return [...validRunners].sort((a, b) => a.modelOdds - b.modelOdds)[0]?.runnerNumber;
-  }, [predictions, oddsStructure?.raceTypeCode]);
+    return aiEngine.getTopPick(predictions, oddsStructure);
+  }, [predictions, oddsStructure]);
 
   // 2. Find top 2 EV picks (excluding systemTopPick to avoid collision, or just let it override visually)
   const evPicks = [...predictions]
