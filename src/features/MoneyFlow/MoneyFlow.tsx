@@ -592,12 +592,12 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
             </div>
           </div>
           
-          {/* QIN 異常溢出 推薦區塊 */}
-          {qinOverflows.length > 0 && (
+          {/* QIN 異常溢出 推薦區塊 (僅限混亂局顯示) */}
+          {oddsStruct?.raceTypeCode === "CHAOTIC" && qinOverflows.length > 0 && (
             <div className="mt-4 p-3 bg-amber-950/20 border border-amber-700/30 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-amber-400 text-xs font-bold flex items-center gap-1">
-                  <span className="animate-pulse">🔥</span> 系統偵測：QIN 異常溢出 (幕後搏殺位)
+                  <span className="animate-pulse">🔥</span> 系統偵測：QIN 異常溢出 (混亂局幕後搏殺位)
                 </span>
                 <span className="text-[10px] text-slate-400">連贏資金比例大幅高於獨贏，可能有內幕信心</span>
               </div>
