@@ -127,12 +127,46 @@ function PoolBar({
 
 // ─── Sub-component: InvestmentRankingChart ────────────────────────────────────
 const InvestmentRankingChart = memo(function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: Prediction[], oddsStructure?: OddsStructure }) {
-  // 1. Find the absolute #1 system pick based on modelOdds
-  const systemTopPick = [...predictions]
-    .filter(p => !String(p.runnerNumber).startsWith("R"))
-    .sort((a, b) => a.modelOdds - b.modelOdds)[0]?.runnerNumber
+  // 1. Calculate ratios for QIN/QPL overflow detection
+  const enhancedPredictions = useMemo(() => {
+    return predictions.map(p => {
+      const win = (p.estWinInvestment ?? 0) / 1000;
+      const qin = (p.estQINInvestment ?? 0) / 1000;
+      const qpl = (p.estQPLInvestment ?? 0) / 1000;
+      const qinWinRatio = win > 0 ? qin / win : 0;
+      const qplWinRatio = win > 0 ? qpl / win : 0;
+      const maxRatio = Math.max(qinWinRatio, qplWinRatio);
+      return { ...p, maxRatio };
+    });
+  }, [predictions]);
 
-  // 2. Find top 2 EV picks (excluding systemTopPick to avoid collision, or just let it override visually)
+  // 2. Find the AI System Top Pick based on race logic
+  //   - 馬膽局 (BANKER) 或 分立局 (SPLIT): 負 EV 值 (< 0) 且有異常柱體比例 (maxRatio > 1.2)
+  //   - 混亂局 (CHAOTIC): 正 EV 值 (> 0) 且有異常柱體比例 (maxRatio > 1.2)
+  //   - 如果沒有符合條件的，則降級為尋找 modelOdds 最低者
+  const systemTopPick = useMemo(() => {
+    const validRunners = enhancedPredictions.filter(p => !String(p.runnerNumber).startsWith("R"));
+    if (validRunners.length === 0) return null;
+
+    const raceType = oddsStructure?.raceTypeCode;
+    let targetRunners = [];
+
+    if (raceType === "BANKER" || raceType === "SPLIT") {
+      targetRunners = validRunners.filter(p => p.expectedValue < 0 && p.maxRatio > QIN_OVERFLOW_RATIO);
+    } else if (raceType === "CHAOTIC") {
+      targetRunners = validRunners.filter(p => p.expectedValue > 0 && p.maxRatio > QIN_OVERFLOW_RATIO);
+    }
+
+    // 如果找到符合特定賽局條件的馬匹，取 modelOdds 最低（勝率最高）的那一匹
+    if (targetRunners.length > 0) {
+      return targetRunners.sort((a, b) => a.modelOdds - b.modelOdds)[0].runnerNumber;
+    }
+
+    // Fallback: 如果沒有符合條件的異常馬，則直接取全場 modelOdds 最低的作為系統首選
+    return validRunners.sort((a, b) => a.modelOdds - b.modelOdds)[0]?.runnerNumber;
+  }, [enhancedPredictions, oddsStructure?.raceTypeCode]);
+
+  // 3. Find top 2 EV picks (excluding systemTopPick to avoid collision)
   const evPicks = [...predictions]
     .filter(p => p.combatStatus === "GO" && !String(p.runnerNumber).startsWith("R"))
     .sort((a, b) => b.expectedValue - a.expectedValue)
