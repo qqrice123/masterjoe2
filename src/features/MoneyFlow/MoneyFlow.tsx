@@ -28,6 +28,7 @@ interface Prediction {
   moneyAlert?:       "large_bet" | "steady" | "drifting"
   oddsHistory:       OddsHistory
   winProbModel:      number
+  modelOdds:         number
   expectedValue:     number
   combatStatus:      string
   investmentLabel:   string
@@ -111,8 +112,13 @@ function PoolBar({
 
 // ─── Sub-component: InvestmentRankingChart ────────────────────────────────────
 function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: Prediction[], oddsStructure?: OddsStructure }) {
-  // Find top 2 AI picks based on highest expectedValue (or score)
-  const topAIPicks = [...predictions]
+  // 1. Find the absolute #1 system pick based on modelOdds
+  const systemTopPick = [...predictions]
+    .filter(p => !String(p.runnerNumber).startsWith("R"))
+    .sort((a, b) => a.modelOdds - b.modelOdds)[0]?.runnerNumber
+
+  // 2. Find top 2 EV picks (excluding systemTopPick to avoid collision, or just let it override visually)
+  const evPicks = [...predictions]
     .filter(p => p.combatStatus === "GO" && !String(p.runnerNumber).startsWith("R"))
     .sort((a, b) => b.expectedValue - a.expectedValue)
     .slice(0, 2)
@@ -128,7 +134,8 @@ function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: P
       win: Math.round((p.estWinInvestment ?? 0) / 1000), // in K
       qin: Math.round((p.estQINInvestment ?? 0) / 1000), // in K
       qinWinRatio: p.estWinInvestment && p.estWinInvestment > 0 ? (p.estQINInvestment ?? 0) / p.estWinInvestment : 0,
-      isTopPick: topAIPicks.includes(p.runnerNumber), // Limit AI markers to max 2
+      isSystemTopPick: p.runnerNumber === systemTopPick,
+      isEvPick: evPicks.includes(p.runnerNumber),
       moneyAlert: p.moneyAlert,
       isOd1: String(p.runnerNumber) === String(oddsStructure?.od1Number),
       isOd2: String(p.runnerNumber) === String(oddsStructure?.od2Number),
@@ -167,9 +174,23 @@ function InvestmentRankingChart({ predictions, oddsStructure }: { predictions: P
     if (!item) return null;
 
     // Determine markers
-    const showMarker = item.moneyAlert === "large_bet" || item.isTopPick;
-    const markerColor = item.moneyAlert === "large_bet" ? "#ef4444" : "#7dd3fc";
-    const textColor = item.moneyAlert === "large_bet" ? "#ffffff" : "#0f1117";
+    let showMarker = false;
+    let markerColor = "";
+    let textColor = "#0f1117";
+
+    if (item.moneyAlert === "large_bet") {
+      showMarker = true;
+      markerColor = "#ef4444";
+      textColor = "#ffffff";
+    } else if (item.isSystemTopPick) {
+      showMarker = true;
+      markerColor = "#7dd3fc"; // Light blue for System Top Pick
+      textColor = "#0f1117";
+    } else if (item.isEvPick) {
+      showMarker = true;
+      markerColor = "#f472b6"; // Pink for EV Pick
+      textColor = "#0f1117";
+    }
     
     // Determine hot label
     let hotLabel = "";
@@ -520,7 +541,8 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#fcd34d] mr-1"></span>獨贏 WIN</span>
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#fed7aa] mr-1"></span>連贏 QIN</span>
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#ef4444] rounded-full mr-1"></span>大戶落飛</span>
-          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1"></span>AI首選</span>
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1"></span>AI系統首選</span>
+          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#f472b6] rounded-full mr-1"></span>正EV馬</span>
           <span className="flex items-center"><span className="text-[#fcd34d] font-bold mr-1">大熱</span>賽局四大熱門</span>
         </p>
 
@@ -545,11 +567,11 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
                 </li>
                 <li className="flex items-start gap-1.5">
                   <span className="text-blue-400 mt-0.5">●</span>
-                  <span><span className="text-blue-400 font-bold">分立局</span>：提防大熱互殺，找半冷門AI首選</span>
+                  <span><span className="text-blue-400 font-bold">分立局</span>：提防大熱互殺，找半冷門粉藍/粉紅點</span>
                 </li>
                 <li className="flex items-start gap-1.5">
                   <span className="text-red-400 mt-0.5">●</span>
-                  <span><span className="text-red-400 font-bold">混亂局</span>：放棄大熱，找AI粉藍點或大戶紅點博大霧</span>
+                  <span><span className="text-red-400 font-bold">混亂局</span>：放棄大熱，找AI粉藍/粉紅點或大戶紅點博大霧</span>
                 </li>
               </ul>
             </div>
@@ -581,8 +603,12 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
               </p>
               <div className="mt-2 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-[#7dd3fc] border border-[#38bdf8] flex items-center justify-center text-[8px] font-bold text-[#0f1117]">8</span>
-                  <span className="text-[10px] text-slate-300">AI 首選 (勝率高估)，必作配腳</span>
+                  <span className="w-4 h-4 rounded-full bg-[#7dd3fc] border border-[#38bdf8] flex items-center justify-center text-[8px] font-bold text-[#0f1117]">1</span>
+                  <span className="text-[10px] text-slate-300">AI 系統首選 (模型勝率最高)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-[#f472b6] border border-[#db2777] flex items-center justify-center text-[8px] font-bold text-[#0f1117]">8</span>
+                  <span className="text-[10px] text-slate-300">正EV馬 (價值被低估)，必作配腳</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full bg-red-500 border border-red-700 flex items-center justify-center text-[8px] font-bold text-white">3</span>

@@ -9,8 +9,8 @@ interface Prediction {
   trainer: string
   draw: number
   weight: number
-  winOdds: number | "—"
-  placeOdds: number | "—"
+  winOdds: number | string
+  placeOdds: number | string
   score: number
   grade: "A" | "B" | "C" | "D"
   rating: number

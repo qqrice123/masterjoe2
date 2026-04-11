@@ -76,7 +76,7 @@ export interface RunnerPrediction {
   marketImpliedProb: number
   winProbModel: number
   modelOdds: number
-  diffProb: number
+  diffProb: number 
   expectedValue: number
   kellyFraction: number
   analysis: string
