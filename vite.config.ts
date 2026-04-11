@@ -21,7 +21,7 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR !== 'true',
       proxy: {
         '/api': {
-          target: 'https://masterjoeracing2.netlify.app',
+          target: 'https://masterjoeracing.netlify.app',
           changeOrigin: true,
           secure: false,
         }

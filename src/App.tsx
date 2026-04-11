@@ -18,9 +18,7 @@ interface Meeting {
 
 // ── API fetch helpers ──────────────────────────────────────────────────────
 
-const API = import.meta.env.DEV
-  ? "/.netlify/functions/api"
-  : "/.netlify/functions/api"
+const API = "/api"
 
 async function fetchMeetings(): Promise<Meeting[]> {
   const res = await fetch(`${API}/meetings`)
