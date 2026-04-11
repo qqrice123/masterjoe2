@@ -129,7 +129,7 @@ function AIFeedbackPanel({ predictions, oddsStructure }: { predictions: Predicti
       </div>
       <div className="flex items-center gap-2">
         <select 
-          className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-1.5 outline-none"
+          className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg pl-3 pr-8 py-1.5 outline-none cursor-pointer"
           value={winner}
           onChange={e => setWinner(e.target.value)}
         >
