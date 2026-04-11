@@ -8,6 +8,13 @@ interface AIWeights {
   largeBetWeight: number; // 大戶落飛警報權重
 }
 
+interface FeatureVector {
+  baseProb: number;  // [0, 1]
+  ev:       number;  // [-0.5, 1]
+  ratio:    number;  // [0, 1]
+  largeBet: number;  // 0 | 1
+}
+
 // 預設各賽局類型的權重
 const DEFAULT_WEIGHTS: Record<string, AIWeights> = {
   BANKER: { baseProbWeight: 1.0, evWeight: -0.5, ratioWeight: 1.5, largeBetWeight: 0.5 },
@@ -20,18 +27,29 @@ const STORAGE_KEY = "masterjoe_ai_learning_weights";
 
 class AILearningEngine {
   private weights: Record<string, AIWeights>;
+  private learningRate: number;
+  private learnCount: Record<string, number> = {};
 
-  constructor() {
-    this.weights = this.loadWeights();
+  constructor(learningRate = 0.05) {
+    this.learningRate = learningRate;
+    this.weights = typeof window !== "undefined" ? this.loadWeights() : { ...DEFAULT_WEIGHTS };
   }
 
   private loadWeights(): Record<string, AIWeights> {
     try {
+      if (typeof window === "undefined") return { ...DEFAULT_WEIGHTS };
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        // 簡單合併預設值，避免缺少屬性
-        return { ...DEFAULT_WEIGHTS, ...parsed };
+        const merged: Record<string, AIWeights> = {};
+        // 深層逐屬性合併
+        for (const key of Object.keys(DEFAULT_WEIGHTS)) {
+          merged[key] = {
+            ...DEFAULT_WEIGHTS[key],
+            ...(parsed[key] ?? {}),
+          };
+        }
+        return merged;
       }
     } catch (e) {
       console.error("Failed to load AI weights", e);
@@ -40,6 +58,7 @@ class AILearningEngine {
   }
 
   private saveWeights() {
+    if (typeof window === "undefined") return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.weights));
     } catch (e) {
@@ -47,8 +66,14 @@ class AILearningEngine {
     }
   }
 
-  // 取得特徵向量
-  private getFeatures(p: Prediction) {
+  // 動態取得學習率 (隨學習次數遞減，避免震盪)
+  private getEffectiveLR(raceType: string): number {
+    const n = this.learnCount[raceType] ?? 0;
+    return this.learningRate / (1 + n * 0.05);
+  }
+
+  // 取得特徵向量並正規化
+  private getFeatures(p: Prediction): FeatureVector {
     const win = (p.estWinInvestment ?? 0);
     const qin = (p.estQINInvestment ?? 0);
     const qpl = (p.estQPLInvestment ?? 0);
@@ -58,8 +83,8 @@ class AILearningEngine {
 
     return {
       baseProb: p.winProbModel || 0,
-      ev: p.expectedValue || 0,
-      ratio: maxRatio || 0,
+      ev: Math.max(-1, Math.min(2, p.expectedValue || 0)) / 2, // 縮放至 [-0.5, 1]
+      ratio: Math.min(maxRatio, 5) / 5, // 縮放至 [0, 1]
       largeBet: p.moneyAlert === "large_bet" ? 1 : 0,
     };
   }
@@ -95,8 +120,9 @@ class AILearningEngine {
     // 依照 AI 綜合分數排序 (由高到低)
     scoredRunners.sort((a, b) => b.score - a.score);
 
-    // 如果所有馬的分數都差不多（例如權重為 0），退回原版最低 modelOdds 邏輯
-    if (scoredRunners[0].score === 0 && scoredRunners[scoredRunners.length - 1].score === 0) {
+    // 回退邏輯：明確檢查是否所有馬的分數都完全相同（包含全 0）
+    const allScoresEqual = scoredRunners.every(r => r.score === scoredRunners[0].score);
+    if (allScoresEqual) {
       return [...validRunners].sort((a, b) => a.modelOdds - b.modelOdds)[0]?.runnerNumber;
     }
 
@@ -112,8 +138,9 @@ class AILearningEngine {
     const winner = validRunners.find(p => String(p.runnerNumber) === String(winningRunnerNumber));
     if (!winner) return;
 
-    const currentWeights = this.weights[raceType];
-    const learningRate = 0.05; // 學習率
+    // 使用工作副本 (Draft) 進行防禦性拷貝
+    const draft = { ...this.weights[raceType] };
+    const effectiveLR = this.getEffectiveLR(raceType);
 
     // 1. 取得所有馬的特徵與當前分數
     const runnersWithScore = validRunners.map(p => ({
@@ -123,8 +150,7 @@ class AILearningEngine {
       isWinner: String(p.runnerNumber) === String(winningRunnerNumber)
     }));
 
-    // 2. 將分數轉為 softmax 機率分佈 (簡化版)
-    // 為了避免數值爆炸，先找出最大分數
+    // 2. 將分數轉為 softmax 機率分佈
     const maxScore = Math.max(...runnersWithScore.map(r => r.score));
     const exps = runnersWithScore.map(r => Math.exp(r.score - maxScore));
     const sumExps = exps.reduce((a, b) => a + b, 0);
@@ -133,40 +159,61 @@ class AILearningEngine {
     runnersWithScore.forEach((r, i) => {
       const prob = exps[i] / sumExps;
       const target = r.isWinner ? 1 : 0;
-      const error = target - prob; // 如果是贏家但機率低，error > 0 (需要增加權重)；反之 error < 0
+      const error = target - prob;
 
-      // 更新規則：Weight = Weight + LearningRate * Error * FeatureValue
-      currentWeights.baseProbWeight += learningRate * error * r.features.baseProb;
-      currentWeights.evWeight       += learningRate * error * r.features.ev;
-      currentWeights.ratioWeight    += learningRate * error * r.features.ratio;
-      currentWeights.largeBetWeight += learningRate * error * r.features.largeBet;
+      draft.baseProbWeight += effectiveLR * error * r.features.baseProb;
+      draft.evWeight       += effectiveLR * error * r.features.ev;
+      draft.ratioWeight    += effectiveLR * error * r.features.ratio;
+      draft.largeBetWeight += effectiveLR * error * r.features.largeBet;
     });
 
     // 限制權重範圍避免發散
     const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
     
     if (raceType === "CHAOTIC") {
-      // 混亂局：EV 權重必須是正的
-      currentWeights.evWeight = clamp(currentWeights.evWeight, 0.1, 5.0);
+      draft.evWeight = clamp(draft.evWeight, 0.1, 5.0);
     } else {
-      // 馬膽/分立局：EV 權重傾向於負的或 0
-      currentWeights.evWeight = clamp(currentWeights.evWeight, -3.0, 0.5);
+      draft.evWeight = clamp(draft.evWeight, -3.0, 0.5);
     }
     
-    currentWeights.baseProbWeight = clamp(currentWeights.baseProbWeight, 0.1, 3.0);
-    currentWeights.ratioWeight = clamp(currentWeights.ratioWeight, 0, 5.0);
-    currentWeights.largeBetWeight = clamp(currentWeights.largeBetWeight, 0, 3.0);
+    draft.baseProbWeight = clamp(draft.baseProbWeight, 0.1, 3.0);
+    draft.ratioWeight = clamp(draft.ratioWeight, 0, 5.0);
+    draft.largeBetWeight = clamp(draft.largeBetWeight, 0, 3.0);
 
-    this.weights[raceType] = currentWeights;
+    // 原子性寫回
+    this.weights[raceType] = draft;
+    this.learnCount[raceType] = (this.learnCount[raceType] ?? 0) + 1;
     this.saveWeights();
     
-    console.log(`[AI Learning] RaceType ${raceType} weights updated:`, currentWeights);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[AI Learning] RaceType ${raceType} weights updated (LR: ${effectiveLR.toFixed(3)}):`, draft);
+    }
   }
 
-  // 取得當前權重供 UI 顯示
-  public getCurrentWeights() {
-    return this.weights;
+  // 取得當前權重供 UI 顯示 (回傳深拷貝防修改)
+  public getCurrentWeights(): Record<string, AIWeights> {
+    return JSON.parse(JSON.stringify(this.weights));
+  }
+
+  // 重置權重
+  public resetWeights(raceType?: string): void {
+    if (raceType) {
+      this.weights[raceType] = { ...DEFAULT_WEIGHTS[raceType] };
+      this.learnCount[raceType] = 0;
+    } else {
+      this.weights = { ...DEFAULT_WEIGHTS };
+      this.learnCount = {};
+    }
+    this.saveWeights();
+    console.info(`[AI Learning] Weights reset${raceType ? ` for ${raceType}` : " (all)"}`);
   }
 }
 
-export const aiEngine = new AILearningEngine();
+// Lazy Singleton 實作，防止 SSR (Next.js/Netlify) 環境下崩潰
+let _aiEngine: AILearningEngine | null = null;
+export const aiEngine = new Proxy({} as AILearningEngine, {
+  get: (target, prop: keyof AILearningEngine) => {
+    if (!_aiEngine) _aiEngine = new AILearningEngine();
+    return _aiEngine[prop];
+  }
+});
