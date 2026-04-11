@@ -194,14 +194,14 @@ export default function App() {
             {autoRefresh ? "自動 ON" : "自動 OFF"}
           </button>
 
-          {/* Dark/Light toggle */}
-          <button
+          {/* Dark/Light toggle (Temporarily hidden) */}
+          {/* <button
             onClick={() => setDark(v => !v)}
             className="p-2 text-slate-400 hover:text-slate-200 transition-colors rounded-lg hover:bg-slate-800"
             aria-label="切換主題"
           >
             {dark ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
+          </button> */}
         </div>
       </header>
 
