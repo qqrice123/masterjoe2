@@ -301,7 +301,7 @@ function AlertFeed({ predictions }: { predictions: Prediction[] }) {
       <div className="flex flex-col items-center justify-center py-8 gap-2">
         <div className="text-2xl">🔍</div>
         <p className="text-slate-500 text-sm">暫無異常資金警報</p>
-        <p className="text-slate-600 text-xs">賠率大幅下跌（≥30%）時觸發大戶警報</p>
+        <p className="text-slate-600 text-xs">賠率大幅下跌（≥20%）時觸發大戶警報</p>
       </div>
     )
   }
@@ -635,7 +635,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full bg-red-500 border border-red-700 flex items-center justify-center text-[8px] font-bold text-white">3</span>
-                  <span className="text-[10px] text-slate-300">大戶落飛 (急跌≥30%)，小注博冷</span>
+                  <span className="text-[10px] text-slate-300">大戶落飛 (急跌≥20%)，小注博冷</span>
                 </div>
               </div>
             </div>
