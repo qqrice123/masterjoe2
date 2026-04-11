@@ -384,7 +384,6 @@ const AlertFeed = memo(function AlertFeed({ predictions }: { predictions: Predic
 const OddsTable = memo(function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; totalWin: number }) {
   const rows = predictions
     .filter(p => !String(p.runnerNumber).startsWith("R"))
-    .slice(0, 14)
 
   return (
     <div className="overflow-x-auto">
