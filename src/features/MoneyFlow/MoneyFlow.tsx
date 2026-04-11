@@ -6,6 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell, Legend
 } from "recharts"
+import { OddsStructureBanner } from "../AnalyticsDashboard/OddsStructureBanner"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface OddsHistory {
@@ -41,14 +42,27 @@ interface PoolsData {
 }
 
 interface OddsStructure {
-  raceType:     string
+  raceType:     "馬膽局" | "分立局" | "混亂局" | "未能判斷"
   raceTypeCode: "BANKER" | "SPLIT" | "CHAOTIC" | "UNKNOWN"
-  od1: number; od2: number; od3: number
+  od1:          number
+  od2:          number
+  od3:          number
+  od4:          number
+  od1Name?: string
+  od2Name?: string
+  od3Name?: string
+  od4Name?: string
+  od1Count?:    number
+  od2Count?:    number
+  od3Count?:    number
+  hotCount:     number
   coldSignal:   boolean
+  qinFocus:     "od1_group" | "od2_od3_group" | "spread" | "unknown"
   topBanker:    string | null
   coldCandidates: (string | number)[]
   description:  string
   tip:          string
+  oddsPattern?: string
 }
 
 interface RaceDetail {
@@ -97,9 +111,8 @@ function OddsMovementChart({ predictions }: { predictions: Prediction[] }) {
     .filter(p =>
       !String(p.runnerNumber).startsWith("R") &&
       p.winOdds !== "—" &&
-      (p.oddsHistory.min15 || p.oddsHistory.min30)
+      (p.oddsHistory.min15 || p.oddsHistory.min30 || p.oddsHistory.overnight)
     )
-    .slice(0, 8) // max 8 for readability
 
   if (horses.length === 0) {
     return (
@@ -125,7 +138,9 @@ function OddsMovementChart({ predictions }: { predictions: Prediction[] }) {
 
   const COLORS = [
     "#3b82f6","#10b981","#f59e0b","#ef4444",
-    "#8b5cf6","#ec4899","#06b6d4","#84cc16"
+    "#8b5cf6","#ec4899","#06b6d4","#84cc16",
+    "#fb923c","#a855f7","#22c55e","#eab308",
+    "#f43f5e","#38bdf8","#f87171","#4ade80"
   ]
 
   return (
@@ -144,6 +159,7 @@ function OddsMovementChart({ predictions }: { predictions: Prediction[] }) {
             key={p.runnerNumber}
             type="monotone"
             dataKey={`#${p.runnerNumber}`}
+            name={`#${p.runnerNumber} ${p.runnerName}`}
             stroke={COLORS[i % COLORS.length]}
             strokeWidth={2}
             dot={{ r: 3 }}
@@ -157,15 +173,24 @@ function OddsMovementChart({ predictions }: { predictions: Prediction[] }) {
 
 // ─── Sub-component: InvestmentRankingChart ────────────────────────────────────
 function InvestmentRankingChart({ predictions }: { predictions: Prediction[] }) {
+  // Find top 2 AI picks based on highest expectedValue (or score)
+  const topAIPicks = [...predictions]
+    .filter(p => p.combatStatus === "GO" && !String(p.runnerNumber).startsWith("R"))
+    .sort((a, b) => b.expectedValue - a.expectedValue)
+    .slice(0, 2)
+    .map(p => p.runnerNumber)
+
+  // Sort horses by WIN investment (descending) and take top 12
   const data = predictions
     .filter(p => p.estWinInvestment != null && !String(p.runnerNumber).startsWith("R"))
     .sort((a, b) => (b.estWinInvestment ?? 0) - (a.estWinInvestment ?? 0))
-    .slice(0, 10)
+    .slice(0, 12)
     .map(p => ({
-      name: `#${p.runnerNumber}`,
-      win:  Math.round((p.estWinInvestment ?? 0) / 1000),  // in K
-      qin:  Math.round((p.estQINInvestment ?? 0) / 1000),
-      grade: p.grade,
+      runnerNumber: p.runnerNumber,
+      winOdds: p.winOdds,
+      win: Math.round((p.estWinInvestment ?? 0) / 1000), // in K
+      qin: Math.round((p.estQINInvestment ?? 0) / 1000), // in K
+      isTopPick: topAIPicks.includes(p.runnerNumber), // Limit AI markers to max 2
       moneyAlert: p.moneyAlert,
     }))
 
@@ -177,27 +202,92 @@ function InvestmentRankingChart({ predictions }: { predictions: Prediction[] }) 
     )
   }
 
+  // Custom X-Axis Tick to show Horse Number and Win Odds below it
+  const CustomTick = (props: any) => {
+    const { x, y, payload } = props;
+    const item = data.find(d => String(d.runnerNumber) === String(payload.value));
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={10} dy={4} textAnchor="middle" fill="#cbd5e1" fontSize={12} fontWeight="bold">
+          {payload.value}
+        </text>
+        <text x={0} y={26} dy={4} textAnchor="middle" fill="#94a3b8" fontSize={11}>
+          {item?.winOdds}
+        </text>
+      </g>
+    );
+  };
+
+  // Custom label for the top of the stacked bar to show total or markers
+  const renderCustomBarLabel = (props: any) => {
+    const { x, y, width, value, index } = props;
+    const item = data[index];
+    if (!item) return null;
+
+    // We can render a circle marker for specific horses (e.g. money alert or top pick)
+    const showMarker = item.moneyAlert === "large_bet" || item.isTopPick;
+    const markerColor = item.moneyAlert === "large_bet" ? "#ef4444" : "#ffffff"; // Red for alert, white for top pick
+    const textColor = item.moneyAlert === "large_bet" ? "#ffffff" : "#000000";
+
+    return (
+      <g>
+        {showMarker && (
+          <g transform={`translate(${x + width / 2}, ${y - 12})`}>
+            <circle cx={0} cy={0} r={10} fill={markerColor} stroke="#1e293b" strokeWidth={1} />
+            <text x={0} y={4} textAnchor="middle" fill={textColor} fontSize={10} fontWeight="bold">
+              {item.runnerNumber}
+            </text>
+          </g>
+        )}
+      </g>
+    );
+  };
+
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <BarChart data={data} margin={{ top: 4, right: 12, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-        <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} unit="K" />
-        <Tooltip
-          contentStyle={{ background: "#0f1117", border: "1px solid #2a3352", borderRadius: 8, fontSize: 12 }}
-          formatter={(v: any) => [`HK$${v}K`, ""]}
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart data={data} margin={{ top: 25, right: 10, left: -20, bottom: 25 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+        <XAxis 
+          dataKey="runnerNumber" 
+          tick={<CustomTick />} 
+          axisLine={{ stroke: "#334155" }}
+          tickLine={false}
         />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
-        <Bar dataKey="win" name="獨贏 WIN" fill="#3b82f6" radius={[3, 3, 0, 0]}>
-          {data.map((entry, i) => (
-            <Cell
-              key={i}
-              fill={entry.moneyAlert === "large_bet" ? "#10b981" : "#3b82f6"}
-              opacity={entry.grade === "A" ? 1 : entry.grade === "B" ? 0.8 : 0.5}
-            />
+        <YAxis 
+          tick={{ fontSize: 11, fill: "#94a3b8" }} 
+          axisLine={false}
+          tickLine={false}
+          unit="K" 
+        />
+        <Tooltip
+          cursor={{ fill: '#1e293b', opacity: 0.4 }}
+          contentStyle={{ background: "#0f1117", border: "1px solid #2a3352", borderRadius: 8, fontSize: 12 }}
+          formatter={(value: any, name: string) => [`HK$${value}K`, name === "win" ? "獨贏 (WIN)" : "連贏 (QIN)"]}
+          labelFormatter={(label) => `馬號: #${label}`}
+        />
+        
+        {/* Stacked Bars */}
+        <Bar 
+          dataKey="win" 
+          stackId="a" 
+          fill="#fcd34d" /* Light orange/yellow for WIN */
+          radius={[0, 0, 2, 2]} 
+        >
+          {data.map((entry, index) => (
+            <Cell key={`cell-win-${index}`} fill={entry.moneyAlert === "large_bet" ? "#f59e0b" : "#fcd34d"} />
           ))}
         </Bar>
-        <Bar dataKey="qin" name="連贏 QIN" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
+        <Bar 
+          dataKey="qin" 
+          stackId="a" 
+          fill="#fed7aa" /* Lighter orange for QIN */
+          radius={[2, 2, 0, 0]} 
+          label={renderCustomBarLabel}
+        >
+          {data.map((entry, index) => (
+             <Cell key={`cell-qin-${index}`} fill={entry.moneyAlert === "large_bet" ? "#fdba74" : "#fed7aa"} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   )
@@ -378,72 +468,6 @@ function OddsTable({ predictions, totalWin }: { predictions: Prediction[]; total
   )
 }
 
-// ─── Sub-component: RaceStructureBadge ───────────────────────────────────────
-function RaceStructureBadge({ oddsStructure }: { oddsStructure: OddsStructure }) {
-  const { 
-    raceTypeCode, raceType, od1, od2, od3, coldSignal, 
-    description, tip, topBanker, coldCandidates, 
-    oddsPattern  // 新增：賠率結構模式 
-  } = oddsStructure 
-  
-  const colorMap = { 
-    BANKER: { bg: "bg-blue-950/50", border: "border-blue-600/50", badge: "bg-blue-700 text-blue-100", icon: "🏦" }, 
-    SPLIT: { bg: "bg-amber-950/40", border: "border-amber-600/40", badge: "bg-amber-700 text-amber-100", icon: "⚔️" }, 
-    CHAOTIC: { bg: "bg-red-950/40", border: "border-red-600/40", badge: "bg-red-700 text-red-100", icon: "🌪️" },
-    UNKNOWN: { bg: "bg-slate-900",    border: "border-slate-700",    badge: "bg-slate-700 text-slate-300",  icon: "❓" },
-  }
-  const c = colorMap[raceTypeCode]
-
-  return (
-    <div className={`rounded-xl p-4 border ${c.bg} ${c.border} space-y-3`}>
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xl">{c.icon}</span>
-        <span className={`text-xs px-2 py-1 rounded-full font-bold ${c.badge}`}>
-          {raceType}
-        </span>
-        {oddsPattern && (
-          <span className="text-xs bg-indigo-900/60 text-indigo-300 px-2 py-1 rounded-full font-semibold">
-            {oddsPattern}
-          </span>
-        )}
-        <span className="text-xs text-slate-400">
-          首選賠率 <span className="text-slate-200 font-mono">{od1}</span>
-          {" "}次選 <span className="text-slate-200 font-mono">{od2}</span>
-          {" "}三選 <span className="text-slate-200 font-mono">{od3}</span>
-        </span>
-        {coldSignal && (
-          <span className="text-xs bg-red-800/60 text-red-300 px-2 py-0.5 rounded-full animate-pulse">
-            ⚠️ 冷賽果高危
-          </span>
-        )}
-      </div>
-
-      <p className="text-xs text-slate-300 leading-relaxed">{description}</p>
-
-      <div className="bg-black/20 rounded-lg p-3 text-xs text-slate-400 leading-relaxed">
-        💡 {tip}
-      </div>
-
-      <div className="flex gap-4 text-xs flex-wrap">
-        {topBanker && (
-          <div>
-            <span className="text-slate-500">馬膽：</span>
-            <span className="text-blue-300 font-bold">#{topBanker}</span>
-          </div>
-        )}
-        {coldCandidates.length > 0 && (
-          <div>
-            <span className="text-slate-500">冷馬候選：</span>
-            <span className="text-amber-300 font-bold">
-              {coldCandidates.map(c => `#${c}`).join(" / ")}
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
   const predictions = raceDetail?.predictions ?? []
@@ -501,7 +525,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
 
       {/* ── Race Structure ── */}
       {oddsStruct && oddsStruct.raceTypeCode !== "UNKNOWN" && (
-        <RaceStructureBadge oddsStructure={oddsStruct} />
+        <OddsStructureBanner oddsStructure={oddsStruct} />
       )}
 
       {/* ── Two-col grid: Charts ── */}
@@ -525,15 +549,18 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
         <div className="bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              💵 推算投注額排名
+              💵 獨贏 / 連贏 資金堆疊分析
             </h3>
             <span className="text-xs text-slate-500">
               {isPreRace ? "預估（賽前）" : "實時彩池"}
             </span>
           </div>
           <InvestmentRankingChart predictions={predictions} />
-          <p className="text-xs text-slate-600 mt-2">
-            🟢 綠色 = 大戶落飛警報 &nbsp;｜&nbsp; 透明度 = 評級高低
+          <p className="text-xs text-slate-600 mt-2 flex gap-4">
+            <span><span className="inline-block w-3 h-3 bg-[#fcd34d] mr-1"></span>獨贏 WIN</span>
+            <span><span className="inline-block w-3 h-3 bg-[#fed7aa] mr-1"></span>連贏 QIN</span>
+            <span><span className="inline-block w-3 h-3 bg-[#ef4444] rounded-full mr-1"></span>大戶落飛</span>
+            <span><span className="inline-block w-3 h-3 bg-white rounded-full mr-1"></span>AI首選</span>
           </p>
         </div>
       </div>
