@@ -256,9 +256,5 @@ const pollOddsHandler: Handler = async (
   }
 }
 
-// Support both older V1 schedule syntax and newer V2 config syntax
+// Ensure ONLY standard Netlify V1 schedule syntax is used to prevent compiler confusion
 export const handler = schedule("*/5 * * * *", pollOddsHandler)
-
-export const config = {
-  schedule: "*/5 * * * *"
-}
