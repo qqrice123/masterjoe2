@@ -212,6 +212,9 @@ function EVMatrixTable({ predictions, isPreRace, oddsStructure }: { predictions:
                 <td className="px-3 py-3">
                   <div className="font-medium text-slate-200 flex items-center gap-1.5">
                     {p.runnerName}
+                    {(p as any).isStrongStar && (
+                      <span className="text-yellow-400 text-xs" title="強勢星星指標 (勝率換算<10 且 即時賠率<10)">★</span>
+                    )}
                     {isSystemTopPick && (
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#7dd3fc]/20 text-[#7dd3fc] border border-[#7dd3fc]/30 whitespace-nowrap">
                         AI首選
