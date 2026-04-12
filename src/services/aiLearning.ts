@@ -83,9 +83,8 @@ class AILearningEngine {
           
           // 寫入本地作為快取
           this.saveWeights(false); 
-          if (process.env.NODE_ENV !== "production") {
-            console.log("[AI Learning] Successfully synced weights from Neon DB.");
-          }
+          // 為了確認雲端連線狀態，這裡允許在生產環境顯示這條訊息
+          console.log("[AI Learning] Successfully synced weights from Neon DB.");
         }
       }
     } catch (e) {

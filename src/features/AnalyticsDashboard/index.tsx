@@ -119,17 +119,17 @@ function AIFeedbackPanel({ predictions, oddsStructure }: { predictions: Predicti
   };
 
   return (
-    <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 flex items-center justify-between">
+    <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
       <div className="flex items-center gap-3">
-        <div className="text-xl">🧠</div>
+        <div className="text-xl hidden sm:block">🧠</div>
         <div>
           <h4 className="text-sm font-bold text-slate-200">AI 模型動態學習</h4>
           <p className="text-xs text-slate-400">輸入賽果，讓系統自動修正特徵權重</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 w-full sm:w-auto">
         <select 
-          className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg pl-3 pr-10 py-1.5 outline-none cursor-pointer appearance-none bg-no-repeat"
+          className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg pl-3 pr-10 py-1.5 outline-none cursor-pointer appearance-none bg-no-repeat flex-1 sm:flex-none"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9' /%3E%3C/svg%3E")`,
             backgroundPosition: "right 0.5rem center",
@@ -148,11 +148,11 @@ function AIFeedbackPanel({ predictions, oddsStructure }: { predictions: Predicti
         <button 
           onClick={handleTrain}
           disabled={!winner || hasTrained}
-          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${
             hasTrained ? "bg-emerald-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           }`}
         >
-          {hasTrained ? "學習完成 ✅" : "提交賽果"}
+          {hasTrained ? "完成 ✅" : "提交賽果"}
         </button>
       </div>
     </div>
