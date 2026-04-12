@@ -6,11 +6,32 @@ import { neon } from "@neondatabase/serverless"
 const horseAPI = new HorseRacingAPI()
 const hkjcClient = new HKJCClient()
 
+// ── Constants & Helpers ──────────────────────────────────────────────────
 const STAT_WIN_RATES: Record<string, Record<string, number>> = {
-  短途正常地: { "<119": 50.0, "120-124": 57.8, "125-129": 25.0, "130+": 57.1 },
-  短途變化地: { "<119": 27.27, "120-124": 48.0, "125-129": 46.67, "130+": 57.14 },
-  中長途正常地: { "<119": 37.5, "120-124": 46.2, "125-129": 54.5, "130+": 60.0 },
-  中長途變化地: { "<119": 37.5, "120-124": 36.11, "125-129": 40.54, "130+": 37.5 },
+  "短途正常地": {
+    "130+": 57.1,
+    "125-129": 25.0,
+    "120-124": 57.8,
+    "<119": 50.0,
+  },
+  "短途變化地": {
+    "130+": 57.14,
+    "125-129": 46.67,
+    "120-124": 48.0,
+    "<119": 27.27,
+  },
+  "中長途正常地": {
+    "130+": 60.0,
+    "125-129": 54.5,
+    "120-124": 46.2,
+    "<119": 37.5,
+  },
+  "中長途變化地": {
+    "130+": 37.5,
+    "125-129": 40.54,
+    "120-124": 36.11,
+    "<119": 37.5,
+  },
 }
 
 const WEIGHTRD_BENCHMARKS: Record<number, number> = {
@@ -720,7 +741,7 @@ export const handler: Handler = async (event) => {
         const deltaTBase = (deltaW / 2) * c
 
         let fGround = 1.0
-        if (goingStr.includes("大爛地") || goingStr.includes("爛") || goingStr.includes("HEAVY")) fGround = 1.3
+        if (goingStr.includes("大爛地") || goingStr.includes("爛") || goingStr.includes("HEAVY")) fGround = 1.30
         else if (
           goingStr.includes("軟") ||
           goingStr.includes("SOFT") ||
@@ -728,19 +749,23 @@ export const handler: Handler = async (event) => {
           goingStr.includes("黏")
         )
           fGround = 1.15
+        else if (goingStr === "好地" || goingStr.includes("GOOD") && !goingStr.includes("FIRM")) fGround = 1.05
         else if (
           goingStr.includes("好至快") ||
           (goingStr.includes("好") && goingStr.includes("快")) ||
           goingStr.includes("GOOD TO FIRM") ||
-          goingStr.includes("GOOD/FIRM")
+          goingStr.includes("GOOD/FIRM") ||
+          goingStr.includes("FIRM")
         )
-          fGround = 1.0
-        else if (goingStr === "好地" || goingStr.includes("好") || goingStr.includes("GOOD")) fGround = 1.05
+          fGround = 1.00
 
         let fStyle = 1.0
         const runNums = (r.last6run ?? "").split(/[/\- ]/).map(Number).filter((n: number) => !isNaN(n) && n > 0)
+        // 跑法修正：領放/前置 0.95，跟前 1.00，後追 1.05 (長途 1.10)
         if (runNums.includes(1) || runNums.includes(2)) fStyle = 0.95
-        else if (runNums.some((n: number) => n >= 9)) fStyle = 1.05
+        else if (runNums.some((n: number) => n >= 9)) {
+          fStyle = distance >= 1400 ? 1.10 : 1.05
+        }
 
         const timeAdvantage = deltaTBase * fGround * fStyle
         const ratingScore = Math.min(1.0, currentRating / classLimit)
