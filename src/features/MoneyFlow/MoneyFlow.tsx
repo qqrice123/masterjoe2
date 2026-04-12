@@ -281,6 +281,9 @@ const OddsTable = memo(function OddsTable({ predictions, totalWin }: { predictio
                       {(p as any).isStrongStar && (
                         <span className="ml-1 text-yellow-400" title="強勢星星指標 (勝率換算<10 且 即時賠率<10)">★</span>
                       )}
+                      {(p as any).isBlueStar && (
+                        <span className="ml-1 text-blue-400" title="混亂局藍星指標 (系統勝率頭3 且 即時賠率10-19.9)">★</span>
+                      )}
                     </span>
                   </div>
                 </td>

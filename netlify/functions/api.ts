@@ -1029,13 +1029,30 @@ export const handler: Handler = async (event) => {
       predictions.sort((a: any, b: any) => {
         if (a.modelOdds !== b.modelOdds) return a.modelOdds - b.modelOdds
         if (a.winProbModel !== b.winProbModel) return b.winProbModel - a.winProbModel
-        return a.runnerNumber - b.runnerNumber
+        const numA = parseInt(String(a.runnerNumber).replace(/\D/g, "")) || 99
+        const numB = parseInt(String(b.runnerNumber).replace(/\D/g, "")) || 99
+        return numA - numB
       })
 
       // ── Odds structure classification ──────────────────────────────────
       const oddsStructure = analyzeOddsStructure(predictions, isPreRace)
 
       const validPredictions = predictions.filter((p: any) => !String(p.runnerNumber).startsWith("R"))
+      
+      // Determine Top 3 for Blue Star Logic
+      const top3Numbers = validPredictions.slice(0, 3).map((p: any) => String(p.runnerNumber))
+      
+      predictions.forEach((p: any) => {
+        if (oddsStructure.raceTypeCode === "CHAOTIC") {
+          const winOddsNum = p.winOdds !== "—" ? parseFloat(String(p.winOdds)) : 0
+          const isTop3 = top3Numbers.includes(String(p.runnerNumber))
+          const isOd2 = winOddsNum >= 10 && winOddsNum < 20
+          p.isBlueStar = isTop3 && isOd2
+        } else {
+          p.isBlueStar = false
+        }
+      })
+
       let topPick = validPredictions.length > 0 ? validPredictions[0] : predictions[0]
       let summaryTextBase = `AI 四維度分析（按模型賠率排名）：首選 #${topPick.runnerNumber} ${topPick.runnerName}（模型賠率 ${topPick.modelOdds}）。`
 

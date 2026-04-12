@@ -215,6 +215,9 @@ function EVMatrixTable({ predictions, isPreRace, oddsStructure }: { predictions:
                     {(p as any).isStrongStar && (
                       <span className="text-yellow-400 text-xs" title="強勢星星指標 (勝率換算<10 且 即時賠率<10)">★</span>
                     )}
+                    {(p as any).isBlueStar && (
+                      <span className="text-blue-400 text-xs" title="混亂局藍星指標 (系統勝率頭3 且 即時賠率10-19.9)">★</span>
+                    )}
                     {isSystemTopPick && (
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#7dd3fc]/20 text-[#7dd3fc] border border-[#7dd3fc]/30 whitespace-nowrap">
                         AI首選
