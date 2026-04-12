@@ -1,0 +1,6 @@
+﻿參數名稱,計算公式,單位,用途,備註
+Weight (負磅),Weight = 馬匹實際負磅,磅,基礎負重指標,直接從賽事資料獲取
+WeightD (負磅距離乘積),WeightD = Weight × Distance,磅×米,總體負擔量化,體現負磅在整個賽程的影響
+Weight Ratio (負磅體重比),Weight Ratio = (Weight ÷ Horse Weight) × 100,%,相對負擔比較,消除體重差異，一般範圍9-13%
+WeightRD (累積相對負擔),WeightRD = (Weight ÷ Horse Weight) × Distance,無量綱,終極比較指標,數值越低越有利，1200米基準100-150
+綜合評分,(統計分數×0.4 + 負擔分數×0.3 + 評分分數×0.2 + 年齡加成×0.1) × 狀態調整,分(0-100),最終排序依據,權重可調整，80分以上為A級

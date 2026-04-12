@@ -1,0 +1,278 @@
+# 建立完整的賽馬分析系統 - 包含所有計算方法和步驟
+import pandas as pd
+import numpy as np
+from typing import Dict, List, Tuple
+
+class HorseRacingAnalysisSystem:
+    """
+    賽馬表現分析系統
+    整合三維度分析框架：負磅統計、進階參數、年齡成熟度
+    """
+    
+    def __init__(self):
+        # 預設統計數據 - 基於提供的統計表
+        self.win_rate_stats = {
+            'short_normal': {  # 短途正常地
+                '<119': 50.0,
+                '120-124': 57.8,
+                '125-129': 25.0,
+                '130+': 57.1
+            },
+            'short_varied': {  # 短途變化地
+                '<119': 27.27,
+                '120-124': 48.0,
+                '125-129': 46.67,
+                '130+': 57.14
+            },
+            'midlong_normal': {  # 中長途正常地
+                '<119': 37.5,
+                '120-124': 46.2,
+                '125-129': 54.5,
+                '130+': 60.0
+            },
+            'midlong_varied': {  # 中長途變化地
+                '<119': 37.5,
+                '120-124': 36.11,
+                '125-129': 40.54,
+                '130+': 37.5
+            }
+        }
+    
+    def calculate_basic_parameters(self, weight: int, distance: int, horse_weight: int) -> Dict[str, float]:
+        """
+        計算四大基礎參數
+        
+        參數:
+        - weight: 負磅(磅)
+        - distance: 路程(米)
+        - horse_weight: 馬匹體重(磅)
+        
+        返回: 包含四個參數的字典
+        """
+        # 1. Weight (負磅) - 直接輸入
+        weight_param = weight
+        
+        # 2. WeightD (負磅 x 路程)
+        weight_d = weight * distance
+        
+        # 3. Weight Ratio (負磅體重比) - 百分比
+        weight_ratio = (weight / horse_weight) * 100
+        
+        # 4. WeightRD (負磅體重比 x 路程) - 累積相對負擔
+        weight_rd = (weight / horse_weight) * distance
+        
+        return {
+            'Weight': weight_param,
+            'WeightD': weight_d,
+            'Weight_Ratio': round(weight_ratio, 2),
+            'WeightRD': round(weight_rd, 2)
+        }
+    
+    def classify_age_maturity(self, age: int) -> str:
+        """
+        根據年齡分類成熟度階段
+        
+        參數:
+        - age: 馬匹年齡
+        
+        返回: 成熟度階段標籤
+        """
+        if age <= 3:
+            return '潛力新星'
+        elif 4 <= age <= 5:
+            return '巔峰戰將'
+        else:
+            return '沙場老將'
+    
+    def get_weight_range_category(self, weight: int) -> str:
+        """
+        將負磅分類到統計區間
+        
+        參數:
+        - weight: 負磅
+        
+        返回: 負磅區間標籤
+        """
+        if weight < 119:
+            return '<119'
+        elif 119 <= weight <= 124:
+            return '120-124'
+        elif 125 <= weight <= 129:
+            return '125-129'
+        else:
+            return '130+'
+    
+    def get_statistical_win_rate(self, weight: int, distance: int, track_condition: str = 'normal') -> float:
+        """
+        根據負磅、路程和場地條件獲取統計上名率
+        
+        參數:
+        - weight: 負磅
+        - distance: 路程(米)
+        - track_condition: 場地條件 ('normal' 或 'varied')
+        
+        返回: 統計上名率(百分比)
+        """
+        # 判斷賽事類型
+        if distance <= 1200:
+            race_type = 'short'
+        else:
+            race_type = 'midlong'
+        
+        # 組合鍵值
+        stat_key = f"{race_type}_{track_condition}"
+        
+        # 獲取負磅區間
+        weight_range = self.get_weight_range_category(weight)
+        
+        # 返回對應統計數據
+        return self.win_rate_stats.get(stat_key, {}).get(weight_range, 0.0)
+    
+    def analyze_single_horse(self, horse_data: Dict) -> Dict:
+        """
+        分析單匹馬的綜合表現
+        
+        參數:
+        - horse_data: 包含馬匹基本資料的字典
+          {
+            'number': 馬號,
+            'name': 馬匹名稱,
+            'weight': 負磅,
+            'horse_weight': 馬匹體重,
+            'age': 年齡,
+            'rating': 評分,
+            'distance': 路程,
+            'track_condition': 場地條件,
+            'recent_results': 近期賽績列表
+          }
+        
+        返回: 完整分析結果
+        """
+        # 第一維度：計算基礎參數
+        params = self.calculate_basic_parameters(
+            horse_data['weight'], 
+            horse_data['distance'], 
+            horse_data['horse_weight']
+        )
+        
+        # 第二維度：統計上名率
+        stat_win_rate = self.get_statistical_win_rate(
+            horse_data['weight'],
+            horse_data['distance'],
+            horse_data.get('track_condition', 'normal')
+        )
+        
+        # 第三維度：年齡成熟度
+        maturity_stage = self.classify_age_maturity(horse_data['age'])
+        
+        # 綜合評分計算
+        comprehensive_score = self.calculate_comprehensive_score(horse_data, params, stat_win_rate)
+        
+        return {
+            '基本資料': {
+                '馬號': horse_data['number'],
+                '馬匹名稱': horse_data['name'],
+                '年齡': horse_data['age'],
+                '負磅': horse_data['weight'],
+                '體重': horse_data['horse_weight'],
+                '評分': horse_data['rating']
+            },
+            '四大參數': params,
+            '統計數據': {
+                '負磅區間': self.get_weight_range_category(horse_data['weight']),
+                '統計上名率': stat_win_rate
+            },
+            '成熟度分析': {
+                '階段': maturity_stage,
+                '分析重點': self.get_maturity_analysis_focus(maturity_stage, horse_data.get('recent_results', []))
+            },
+            '綜合評分': comprehensive_score
+        }
+    
+    def get_maturity_analysis_focus(self, maturity_stage: str, recent_results: List[int]) -> str:
+        """
+        根據成熟度階段和近期賽績提供分析重點
+        """
+        if maturity_stage == '潛力新星':
+            if len(recent_results) >= 2:
+                trend = "進步中" if recent_results[0] < recent_results[1] else "需觀察"
+                return f"重點關注進步趨勢，目前{trend}"
+            return "數據不足，重點觀察未來表現"
+        
+        elif maturity_stage == '巔峰戰將':
+            avg_result = np.mean(recent_results) if recent_results else 0
+            if avg_result <= 4:
+                return "處於競爭力巔峰，是爭勝核心"
+            elif avg_result <= 8:
+                return "實力穩定，可作配腳選擇"
+            else:
+                return "表現平平，需提防狀態下滑"
+        
+        else:  # 沙場老將
+            if recent_results:
+                best_recent = min(recent_results)
+                if best_recent <= 3:
+                    return "寶刀未老，仍具競爭力"
+                elif best_recent <= 6:
+                    return "經驗豐富，可望穩定發揮"
+                else:
+                    return "力不從心，爭勝困難"
+            return "需警惕狀態下滑風險"
+    
+    def calculate_comprehensive_score(self, horse_data: Dict, params: Dict, stat_win_rate: float) -> float:
+        """
+        計算綜合評分
+        
+        評分權重:
+        - 統計上名率: 40%
+        - 負擔指標: 30% (WeightRD越低越好)
+        - 評分指標: 20%
+        - 年齡加成: 10%
+        """
+        # 標準化統計上名率 (0-100 -> 0-1)
+        stat_score = stat_win_rate / 100
+        
+        # 標準化負擔指標 (WeightRD越低越好, 假設150為基準)
+        burden_score = max(0, (150 - params['WeightRD']) / 150)
+        
+        # 標準化評分指標 (假設60分為滿分)
+        rating_score = min(1.0, horse_data['rating'] / 60)
+        
+        # 年齡加成
+        maturity_stage = self.classify_age_maturity(horse_data['age'])
+        age_bonus = {
+            '潛力新星': 0.8,  # 潛力但風險較高
+            '巔峰戰將': 1.0,  # 最佳狀態
+            '沙場老將': 0.9   # 經驗但可能下滑
+        }.get(maturity_stage, 1.0)
+        
+        # 加權計算
+        comprehensive_score = (
+            stat_score * 0.4 + 
+            burden_score * 0.3 + 
+            rating_score * 0.2 + 
+            age_bonus * 0.1
+        ) * 100
+        
+        return round(comprehensive_score, 2)
+
+# 示範系統使用
+analyzer = HorseRacingAnalysisSystem()
+
+# 測試單匹馬分析
+sample_horse = {
+    'number': 1,
+    'name': '測試馬匹',
+    'weight': 130,
+    'horse_weight': 1150,
+    'age': 4,
+    'rating': 55,
+    'distance': 1200,
+    'track_condition': 'normal',
+    'recent_results': [3, 5, 2]
+}
+
+result = analyzer.analyze_single_horse(sample_horse)
+print("=== 賽馬分析系統示範 ===")
+for key, value in result.items():
+    print(f"{key}: {value}")

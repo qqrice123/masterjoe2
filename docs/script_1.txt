@@ -1,0 +1,243 @@
+# 創建一個實用的分析工具類，包含完整的計算和示範功能
+import pandas as pd
+import numpy as np
+
+class PracticalHorseAnalyzer:
+    """
+    實用賽馬分析工具
+    提供完整的分析步驟和計算方法
+    """
+    
+    def __init__(self):
+        # 統計數據表
+        self.stats_table = {
+            'short_normal': {'<119': 50.0, '120-124': 57.8, '125-129': 25.0, '130+': 57.1},
+            'short_varied': {'<119': 27.27, '120-124': 48.0, '125-129': 46.67, '130+': 57.14},
+            'midlong_normal': {'<119': 37.5, '120-124': 46.2, '125-129': 54.5, '130+': 60.0},
+            'midlong_varied': {'<119': 37.5, '120-124': 36.11, '125-129': 40.54, '130+': 37.5}
+        }
+    
+    def analyze_race_field(self, horses_data: list, race_info: dict) -> pd.DataFrame:
+        """
+        分析整場賽事的所有馬匹
+        
+        參數:
+        horses_data: 馬匹數據列表
+        race_info: 賽事資訊 {'distance': 路程, 'track_condition': 場地狀況}
+        
+        返回: 完整分析結果DataFrame
+        """
+        results = []
+        
+        for horse in horses_data:
+            analysis = self._analyze_single_horse(horse, race_info)
+            results.append(analysis)
+        
+        # 創建DataFrame並排序
+        df = pd.DataFrame(results)
+        df = df.sort_values('綜合評分', ascending=False).reset_index(drop=True)
+        df['評級排名'] = range(1, len(df) + 1)
+        
+        return df
+    
+    def _analyze_single_horse(self, horse: dict, race_info: dict) -> dict:
+        """分析單匹馬"""
+        # 基礎計算
+        params = self._calculate_parameters(horse, race_info['distance'])
+        
+        # 統計數據
+        stat_rate = self._get_statistical_rate(horse['weight'], race_info)
+        
+        # 年齡分析
+        age_analysis = self._analyze_age_maturity(horse)
+        
+        # 綜合評分
+        score = self._calculate_comprehensive_score(horse, params, stat_rate, age_analysis)
+        
+        return {
+            '馬號': horse['number'],
+            '馬匹名稱': horse['name'],
+            '負磅': horse['weight'],
+            '體重': horse['horse_weight'],
+            '年齡': horse['age'],
+            '評分': horse['rating'],
+            'Weight_Ratio': params['Weight_Ratio'],
+            'WeightRD': params['WeightRD'],
+            '統計上名率': stat_rate,
+            '年齡階段': age_analysis['stage'],
+            '狀態評估': age_analysis['condition'],
+            '綜合評分': score,
+            '分析備註': self._generate_analysis_note(horse, params, stat_rate, age_analysis)
+        }
+    
+    def _calculate_parameters(self, horse: dict, distance: int) -> dict:
+        """計算四大參數"""
+        weight = horse['weight']
+        horse_weight = horse['horse_weight']
+        
+        return {
+            'Weight': weight,
+            'WeightD': weight * distance,
+            'Weight_Ratio': round((weight / horse_weight) * 100, 2),
+            'WeightRD': round((weight / horse_weight) * distance, 1)
+        }
+    
+    def _get_statistical_rate(self, weight: int, race_info: dict) -> float:
+        """獲取統計上名率"""
+        # 確定賽事類型
+        distance = race_info['distance']
+        track_condition = race_info.get('track_condition', 'normal')
+        
+        race_type = 'short' if distance <= 1200 else 'midlong'
+        stat_key = f"{race_type}_{track_condition}"
+        
+        # 確定負磅區間
+        if weight < 119:
+            weight_range = '<119'
+        elif weight <= 124:
+            weight_range = '120-124'
+        elif weight <= 129:
+            weight_range = '125-129'
+        else:
+            weight_range = '130+'
+        
+        return self.stats_table.get(stat_key, {}).get(weight_range, 0.0)
+    
+    def _analyze_age_maturity(self, horse: dict) -> dict:
+        """分析年齡和成熟度"""
+        age = horse['age']
+        recent_results = horse.get('recent_results', [])
+        
+        # 年齡階段
+        if age <= 3:
+            stage = '潛力新星'
+        elif age <= 5:
+            stage = '巔峰戰將'
+        else:
+            stage = '沙場老將'
+        
+        # 狀態評估
+        condition = self._assess_condition(stage, recent_results)
+        
+        return {'stage': stage, 'condition': condition}
+    
+    def _assess_condition(self, stage: str, recent_results: list) -> str:
+        """評估馬匹狀態"""
+        if not recent_results:
+            return "數據不足"
+        
+        avg_result = np.mean(recent_results)
+        best_recent = min(recent_results)
+        
+        if stage == '潛力新星':
+            if len(recent_results) >= 2 and recent_results[0] < recent_results[-1]:
+                return "進步中"
+            return "觀察中"
+        
+        elif stage == '巔峰戰將':
+            if avg_result <= 4:
+                return "狀態出色"
+            elif avg_result <= 8:
+                return "表現穩定"
+            else:
+                return "狀態平平"
+        
+        else:  # 沙場老將
+            if best_recent <= 3:
+                return "寶刀未老"
+            elif best_recent <= 6:
+                return "穩定發揮"
+            else:
+                return "力不從心"
+    
+    def _calculate_comprehensive_score(self, horse: dict, params: dict, stat_rate: float, age_analysis: dict) -> float:
+        """計算綜合評分"""
+        # 統計分數 (40%)
+        stat_score = stat_rate / 100 * 0.4
+        
+        # 負擔分數 (30%) - WeightRD越低越好
+        burden_score = max(0, (150 - params['WeightRD']) / 150) * 0.3
+        
+        # 評分分數 (20%)
+        rating_score = min(1.0, horse['rating'] / 60) * 0.2
+        
+        # 年齡加成 (10%)
+        age_bonus = {
+            '潛力新星': 0.08,
+            '巔峰戰將': 0.10,
+            '沙場老將': 0.09
+        }.get(age_analysis['stage'], 0.10)
+        
+        # 狀態調整
+        condition_multiplier = {
+            '進步中': 1.1, '狀態出色': 1.2, '寶刀未老': 1.1,
+            '觀察中': 1.0, '表現穩定': 1.0, '穩定發揮': 1.0,
+            '狀態平平': 0.9, '力不從心': 0.8, '數據不足': 1.0
+        }.get(age_analysis['condition'], 1.0)
+        
+        final_score = (stat_score + burden_score + rating_score + age_bonus) * condition_multiplier * 100
+        return round(final_score, 1)
+    
+    def _generate_analysis_note(self, horse: dict, params: dict, stat_rate: float, age_analysis: dict) -> str:
+        """生成分析備註"""
+        notes = []
+        
+        # 統計優勢
+        if stat_rate >= 50:
+            notes.append("統計有利")
+        elif stat_rate >= 40:
+            notes.append("統計一般")
+        else:
+            notes.append("統計不利")
+        
+        # 負擔情況
+        if params['WeightRD'] <= 120:
+            notes.append("負擔輕")
+        elif params['WeightRD'] <= 150:
+            notes.append("負擔適中")
+        else:
+            notes.append("負擔重")
+        
+        # 年齡狀態
+        notes.append(f"{age_analysis['stage']}-{age_analysis['condition']}")
+        
+        return ", ".join(notes)
+
+# 示範完整分析流程
+def demonstrate_analysis():
+    """示範分析系統的完整使用"""
+    
+    # 創建分析器
+    analyzer = PracticalHorseAnalyzer()
+    
+    # 示範數據 - 模擬一場12馬的1200米賽事
+    sample_horses = [
+        {'number': 1, 'name': '閃電俠', 'weight': 135, 'horse_weight': 1160, 'age': 4, 'rating': 58, 'recent_results': [1, 3, 2]},
+        {'number': 2, 'name': '勝利王', 'weight': 132, 'horse_weight': 1140, 'age': 5, 'rating': 55, 'recent_results': [2, 1, 4]},
+        {'number': 3, 'name': '新星', 'weight': 120, 'horse_weight': 1100, 'age': 3, 'rating': 45, 'recent_results': [8, 6, 4]},
+        {'number': 4, 'name': '老將', 'weight': 128, 'horse_weight': 1180, 'age': 7, 'rating': 52, 'recent_results': [5, 3, 6]},
+        {'number': 5, 'name': '穩定馬', 'weight': 125, 'horse_weight': 1120, 'age': 4, 'rating': 50, 'recent_results': [6, 5, 5]}
+    ]
+    
+    race_info = {
+        'distance': 1200,
+        'track_condition': 'normal'
+    }
+    
+    # 執行分析
+    results = analyzer.analyze_race_field(sample_horses, race_info)
+    
+    return results
+
+# 執行示範
+results_df = demonstrate_analysis()
+
+print("=== 賽馬分析系統完整示範 ===")
+print("\n最終分析結果：")
+print(results_df[['評級排名', '馬匹名稱', '負磅', '統計上名率', 'WeightRD', '年齡階段', '綜合評分', '分析備註']].to_string(index=False))
+
+print("\n=== 關鍵計算公式總結 ===")
+print("1. Weight Ratio = (負磅 ÷ 馬匹體重) × 100%")
+print("2. WeightRD = (負磅 ÷ 馬匹體重) × 路程")
+print("3. 綜合評分 = (統計分數×0.4 + 負擔分數×0.3 + 評分分數×0.2 + 年齡加成×0.1) × 狀態調整")
+print("4. 負擔分數 = max(0, (150 - WeightRD) ÷ 150)")
