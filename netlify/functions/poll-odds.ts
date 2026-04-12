@@ -7,6 +7,7 @@
  *
  */
 import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions"
+import { schedule } from "@netlify/functions"
 import { neon } from "@neondatabase/serverless"
 import { HorseRacingAPI, HKJCClient } from "hkjc-api"
 import { horseOddsQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
@@ -58,7 +59,7 @@ function getMtpBucket(mtp: number): number {
 }
 
 // ---- 主 handler ----
-export const handler: Handler = async (
+const pollOddsHandler: Handler = async (
   _event: HandlerEvent,
   _context: HandlerContext
 ) => {
@@ -256,6 +257,4 @@ export const handler: Handler = async (
   }
 }
 
-export const config = {
-  schedule: "*/5 * * * *",
-}
+export const handler = schedule("*/5 * * * *", pollOddsHandler)
