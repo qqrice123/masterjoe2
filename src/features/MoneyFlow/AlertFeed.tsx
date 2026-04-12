@@ -533,7 +533,7 @@ export const AlertFeed = memo(function AlertFeed({
     return predictions
       .filter((p) => !String(p.runnerNumber).startsWith("R"))
       .map(buildAlertItem)
-      .filter((a): a is AlertItem => a !== null)
+      .filter((a): a is AlertItem => a !== null && a.alertType !== "DRIFT")
       .sort((a, b) => {
         // 嚴重度優先：CRITICAL > HIGH > MEDIUM
         const severityOrder: Record<AlertSeverity, number> = {
