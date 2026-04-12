@@ -33,6 +33,11 @@ class AILearningEngine {
   constructor(learningRate = 0.05) {
     this.learningRate = learningRate;
     this.weights = typeof window !== "undefined" ? this.loadWeights() : { ...DEFAULT_WEIGHTS };
+    
+    // 初始化時，如果在瀏覽器端，就嘗試跟雲端同步權重
+    if (typeof window !== "undefined") {
+      this.syncWithCloud();
+    }
   }
 
   private loadWeights(): Record<string, AIWeights> {
@@ -57,12 +62,71 @@ class AILearningEngine {
     return { ...DEFAULT_WEIGHTS };
   }
 
-  private saveWeights() {
+  // ── 雲端同步機制 (Cloud Sync) ──
+  private async syncWithCloud() {
+    try {
+      const res = await fetch("/.netlify/functions/weights");
+      if (res.ok) {
+        const data = await res.json();
+        
+        // 成功從 Neon DB 取得資料
+        if (data.weights && Object.keys(data.weights).length > 0) {
+          const merged: Record<string, AIWeights> = {};
+          for (const key of Object.keys(DEFAULT_WEIGHTS)) {
+            merged[key] = {
+              ...DEFAULT_WEIGHTS[key],
+              ...(data.weights[key] ?? {}),
+            };
+          }
+          this.weights = merged;
+          this.learnCount = data.learnCount || {};
+          
+          // 寫入本地作為快取
+          this.saveWeights(false); 
+          if (process.env.NODE_ENV !== "production") {
+            console.log("[AI Learning] Successfully synced weights from Neon DB.");
+          }
+        }
+      }
+    } catch (e) {
+      // 若沒有設定 DB 或連線失敗，會自動 fallback 使用 LocalStorage 的資料
+      console.warn("[AI Learning] Cloud sync failed, falling back to LocalStorage.", e);
+    }
+  }
+
+  // 修改儲存方法，加入上傳雲端的邏輯
+  private async saveWeights(uploadToCloud = true) {
     if (typeof window === "undefined") return;
+    
+    // 1. 先存在 LocalStorage 保底
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.weights));
     } catch (e) {
-      console.error("Failed to save AI weights", e);
+      console.error("Failed to save AI weights locally", e);
+    }
+
+    // 2. 如果指定要上傳 (訓練完畢後)，發送給 Netlify Function 存入 Neon
+    if (uploadToCloud) {
+      // 這裡簡單採用 Fire-and-forget，不阻塞主執行緒
+      // 由於可能同時更新多個賽局，我們這裡示範上傳最近更新的那個賽局
+      // 在 feedbackResult 裡面，我們會針對被更新的 raceType 呼叫 saveWeightsToCloud(raceType)
+    }
+  }
+
+  // 專門用於上傳特定 raceType 權重到雲端
+  private async saveWeightsToCloud(raceType: string) {
+    try {
+      await fetch("/.netlify/functions/weights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          raceType,
+          weights: this.weights[raceType],
+          learnCount: this.learnCount[raceType] || 0,
+        }),
+      });
+    } catch (e) {
+      console.warn("[AI Learning] Failed to upload weights to Neon DB", e);
     }
   }
 
@@ -183,7 +247,8 @@ class AILearningEngine {
     // 原子性寫回
     this.weights[raceType] = draft;
     this.learnCount[raceType] = (this.learnCount[raceType] ?? 0) + 1;
-    this.saveWeights();
+    this.saveWeights(true); // 儲存並上傳
+    this.saveWeightsToCloud(raceType); // 直接將這次變動推上雲端
     
     if (process.env.NODE_ENV !== "production") {
       console.log(`[AI Learning] RaceType ${raceType} weights updated (LR: ${effectiveLR.toFixed(3)}):`, draft);
