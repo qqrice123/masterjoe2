@@ -1,0 +1,16 @@
+name: Poll HKJC Odds (Cron)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: # 允許手動觸發測試
+
+jobs:
+  poll-odds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Netlify Function
+        run: |
+          curl -X POST "https://masterjoe2.netlify.app/.netlify/functions/poll-odds" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          --fail --silent --show-error
