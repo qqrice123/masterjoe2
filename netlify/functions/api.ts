@@ -165,40 +165,18 @@ function getDynamicWeights(distance: number, raceClass: string) {
   }
 }
 
-
 // ══════════════════════════════════════════════════════════════════════════════
-// ODDS STRUCTURE ANALYSIS — based on Chinese racing analytics methodology
-// Classifies each race into 馬膽局 / 分立局 / 混亂局 using favorite odds tiers
-// ══════════════════════════════════════════════════════════════════════════════
-
-interface OddsStructureResult {
-  raceType: "馬膽局" | "分立局" | "混亂局" | "未能判斷"
-  raceTypeCode: "BANKER" | "SPLIT" | "CHAOTIC" | "UNKNOWN"
-  od1: number          // favorite odds
-  od2: number          // 2nd favorite odds
-  od3: number          // 3rd favorite odds
-  od4: number          // 4th favorite odds
-  hotCount: number     // horses with winOdds ≤ 10
-  coldSignal: boolean  // true = likely cold race result
-  qinFocus: "od1_group" | "od2_od3_group" | "spread" | "unknown"
-  topBanker: string | null   // runnerNumber of banker (if 馬膽局)
-  coldCandidates: (string | number)[]  // runner numbers worth watching for cold
-  description: string
-  tip: string
-}
-
-//══════════════════════════════════════════════════════════════════════════════
 // ODDS STRUCTURE ANALYSIS — 基於香港賽馬專業理論
 // 賠率分類：od1(1-9.9熱門) / od2(10-19.9半冷) / od3(20-99冷馬)
-// 三大賽局：馬膽局(od1≤3) / 混亂局(od1=4) / 分立局(od1≥4)
-//══════════════════════════════════════════════════════════════════════════════
+// 三大賽局：馬膽局(od1≤3) / 混亂局(od1=4) / 分立局(od1≥5)
+// ══════════════════════════════════════════════════════════════════════════════
 interface OddsStructureResult {
   raceType: "馬膽局" | "分立局" | "混亂局" | "未能判斷"
   raceTypeCode: "BANKER" | "SPLIT" | "CHAOTIC" | "UNKNOWN"
-  od1: number  // 首選賠率
-  od2: number  // 次選賠率
-  od3: number  // 三選賠率
-  od4: number  // 四選賠率
+  od1: number
+  od2: number
+  od3: number
+  od4: number
   od1Name?: string
   od2Name?: string
   od3Name?: string
@@ -207,17 +185,17 @@ interface OddsStructureResult {
   od2Number?: string | number
   od3Number?: string | number
   od4Number?: string | number
-  od1Count: number  // 熱門馬數量(1-9.9)
-  od2Count: number  // 半冷門馬數量(10-19.9)
-  od3Count: number  // 冷馬數量(20-99)
-  oddsPattern: string  // 賠率結構模式 e.g. "3/5/6"
-  hotCount: number  // horses with winOdds ≤ 10（向下兼容舊欄位）
-  coldSignal: boolean  // 冷賽果信號
+  od1Count: number
+  od2Count: number
+  od3Count: number
+  oddsPattern: string
+  hotCount: number
+  coldSignal: boolean
   qinFocus: "od1_group" | "od2_od3_group" | "spread" | "unknown"
-  topBanker: string | null  // 馬膽號碼
-  coldCandidates: (string | number)[]  // 冷馬候選
-  description: string  // 賽局描述
-  tip: string  // 投注建議
+  topBanker: string | null
+  coldCandidates: (string | number)[]
+  description: string
+  tip: string
 }
 
 function analyzeOddsStructure(
@@ -246,7 +224,6 @@ function analyzeOddsStructure(
 
   if (withOdds.length < 4) return NA
 
-  // 提取前四名賠率
   const top4 = withOdds.slice(0, 4)
   const od1 = top4[0] ? parseFloat(String(top4[0].winOdds)) : 99
   const od2 = top4[1] ? parseFloat(String(top4[1].winOdds)) : 99
@@ -263,21 +240,16 @@ function analyzeOddsStructure(
   const od3Number = top4[2]?.runnerNumber
   const od4Number = top4[3]?.runnerNumber
 
-  // 計算 od1/od2/od3 分類數量 (匹數)
-  // od1: 熱門馬 (1-9.9倍)
-  // od2: 半冷馬 (10-19.9倍)
-  // od3: 冷馬 (20倍以上)
   const od1Count = withOdds.filter(p => parseFloat(String(p.winOdds)) < 10).length
   const od2Count = withOdds.filter(p => {
     const o = parseFloat(String(p.winOdds))
     return o >= 10 && o < 20
   }).length
   const od3Count = withOdds.filter(p => parseFloat(String(p.winOdds)) >= 20).length
-  
-  const oddsPattern = `${od1Count}/${od2Count}/${od3Count}`
-  const hotCount = od1Count  // 向下兼容：熱門馬 = od1Count
 
-  // 冷馬候選：od2 和 od3 中賠率 6-30 之間的馬 (微調：原為6-30，現改為在半冷/冷馬群中挑選)
+  const oddsPattern = `${od1Count}/${od2Count}/${od3Count}`
+  const hotCount = od1Count
+
   const coldCandidates = withOdds
     .filter(p => {
       const o = parseFloat(String(p.winOdds))
@@ -288,17 +260,17 @@ function analyzeOddsStructure(
 
   const topBanker = withOdds[0].runnerNumber
 
+  console.log(`[OddsStructure] od1Count=${od1Count} od2Count=${od2Count} od3Count=${od3Count} pattern=${oddsPattern} isPreRace=${isPreRace}`)
+
   // ══════════════════════════════════════════════════════════════════════
-  // 規則一：馬膽局 — od1 (熱門馬匹數) ≤ 3匹
-  // 意味著有超班的馬膽存在，投注者一般都是圍繞這些強有力的馬膽來構築投注形式的
+  // 規則一：馬膽局 — od1Count ≤ 3匹
   // ══════════════════════════════════════════════════════════════════════
   if (od1Count <= 3) {
-    let tip = `強馬膽 #${topBanker}（${od1}）存在。連贏(Q)聚焦首選配搭次選。`
-    let qin: OddsStructureResult["qinFocus"] = "od1_group"
-
+    const tip = `強馬膽 #${topBanker}（${od1}）存在。連贏(Q)聚焦首選配搭次選。`
+    const qin: OddsStructureResult["qinFocus"] = "od1_group"
     return {
       raceType: "馬膽局", raceTypeCode: "BANKER",
-      od1, od2, od3, od4, 
+      od1, od2, od3, od4,
       od1Name, od2Name, od3Name, od4Name,
       od1Number, od2Number, od3Number, od4Number,
       od1Count, od2Count, od3Count, oddsPattern, hotCount,
@@ -312,8 +284,7 @@ function analyzeOddsStructure(
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // 規則三：混亂局 — od1 (熱門馬匹數) = 4匹
-  // 情況變的較為複雜。此時出現Q全在od1中的情況較少，賽果強烈的偏向於在od2和od3中出現冷門
+  // 規則三：混亂局 — od1Count = 4匹
   // ══════════════════════════════════════════════════════════════════════
   if (od1Count === 4) {
     return {
@@ -332,14 +303,11 @@ function analyzeOddsStructure(
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // 規則二：分立局 — od1 (熱門馬匹數) ≥ 5匹 (原規則為 >= 4，但 =4 是混亂局，故實為 > 4)
-  // 意味著熱門或冷門出現了一定程度的分層現象。熱門相爭的數量較多(有時可達5-9匹)
+  // 規則二：分立局 — od1Count ≥ 5匹
   // ══════════════════════════════════════════════════════════════════════
   if (od1Count > 4) {
     const isColdSplit = od2Count >= 4
-    
     if (isColdSplit) {
-      // od1 > 4匹 且 od2 ≥ 4匹
       return {
         raceType: "分立局", raceTypeCode: "SPLIT",
         od1, od2, od3, od4,
@@ -354,8 +322,6 @@ function analyzeOddsStructure(
         tip: `od1 和 od2 並沒有賠率顯示的那樣有那麼大的差異，賽果有很大的機會可能會出現冷馬結果。`,
       }
     } else {
-      // od1 > 4匹 且 od2 < 4匹
-      // 若 od2 < 3匹，則分層現象更加明顯
       const isStrongSplit = od2Count < 3
       return {
         raceType: "分立局", raceTypeCode: "SPLIT",
@@ -368,14 +334,13 @@ function analyzeOddsStructure(
         topBanker: String(topBanker),
         coldCandidates: [],
         description: `分立局：熱門馬達 ${od1Count} 匹，熱門或冷門出現了一定程度的分層現象。熱門相爭數量較多，賽果偏向較多熱門。`,
-        tip: isStrongSplit 
+        tip: isStrongSplit
           ? `半冷馬（${od2Count}匹）< 3匹，分層現象更加明顯。有很大的機率 Q 基本上在 od1 中出現。`
           : `熱門競爭多，注意熱門馬匹間的連贏(Q)組合。`,
       }
     }
   }
 
-  // Fallback
   return NA
 }
 
@@ -401,7 +366,6 @@ export const handler: Handler = async (event) => {
     const method = event.httpMethod || "GET"
     console.log("API request", { method, rawPath, pathname })
 
-    // Allow POST for push-subscribe and push-send
     if (method !== "GET" && method !== "POST" && method !== "DELETE") {
       return json(405, { error: "Method not allowed" })
     }
@@ -459,16 +423,16 @@ export const handler: Handler = async (event) => {
     if (pathname === "/alerts") {
       try {
         const urlParams = new URLSearchParams(event.queryStringParameters as any)
-        const limit    = Math.min(Number(urlParams.get("limit") ?? 30), 100)
+        const limit = Math.min(Number(urlParams.get("limit") ?? 30), 100)
         const severity = urlParams.get("severity") ?? undefined
-        const date     = urlParams.get("date")     ?? undefined
+        const date = urlParams.get("date") ?? undefined
 
         if (!process.env.DATABASE_URL) {
           return json(500, { error: "DATABASE_URL not configured" })
         }
 
         const sql = neon(process.env.DATABASE_URL)
-        
+
         let historyQuery
         if (date && severity) {
           historyQuery = sql`SELECT * FROM alerts WHERE date = ${date}::date AND severity = ${severity} ORDER BY detected_at DESC LIMIT ${limit}`
@@ -481,24 +445,24 @@ export const handler: Handler = async (event) => {
         }
 
         const statsQuery = sql`
-          SELECT 
+          SELECT
             COUNT(*) as total,
             COUNT(*) FILTER (WHERE severity = 'CRITICAL') as critical,
             COUNT(*) FILTER (WHERE severity = 'HIGH') as high,
             COUNT(*) FILTER (WHERE severity = 'MEDIUM') as medium
-          FROM alerts 
+          FROM alerts
           WHERE date = CURRENT_DATE
         `
 
         const [history, statsResult] = await Promise.all([historyQuery, statsQuery])
-        
+
         let stats = { critical: 0, high: 0, medium: 0, total: 0 }
         if (statsResult && statsResult.length > 0) {
           stats = {
             total: Number(statsResult[0].total),
             critical: Number(statsResult[0].critical),
             high: Number(statsResult[0].high),
-            medium: Number(statsResult[0].medium)
+            medium: Number(statsResult[0].medium),
           }
         }
 
@@ -569,8 +533,7 @@ export const handler: Handler = async (event) => {
           oddsTypes: ["QIN", "QPL"],
         })
         const pools = qinOddsResponse.raceMeetings[0]?.pmPools || []
-        
-        // Parse QIN pool
+
         const qinPool = pools.find((p: any) => p.oddsType === "QIN")
         if (qinPool?.oddsNodes) {
           qinPool.oddsNodes.forEach((node: any) => {
@@ -578,8 +541,7 @@ export const handler: Handler = async (event) => {
             if (!isNaN(v) && v > 0) qinOddsMap[node.combString] = v
           })
         }
-        
-        // Parse QPL pool
+
         const qplPool = pools.find((p: any) => p.oddsType === "QPL")
         if (qplPool?.oddsNodes) {
           qplPool.oddsNodes.forEach((node: any) => {
@@ -611,7 +573,7 @@ export const handler: Handler = async (event) => {
         if (poolsData.WIN > 0 || poolsData.QIN > 0) isPreRace = false
       } catch { /* ignore */ }
 
-      // ── Step 4: Historical odds and Race Results from Neon ─────────────────────────────
+      // ── Step 4: Historical odds and Race Results from Neon ─────────────
       let historicalOddsMap: Record<string, number> = {}
       let min30OddsMap: Record<string, number> = {}
       let resultsMap: Record<string, number> = {}
@@ -625,26 +587,26 @@ export const handler: Handler = async (event) => {
               SELECT runner_number, odds
               FROM odds_snapshots
               WHERE date = ${isoDate}
-                AND venue = ${venueCode.toUpperCase()}
-                AND race_no = ${raceNo}
-                AND mtp_bucket = 15
+              AND venue = ${venueCode.toUpperCase()}
+              AND race_no = ${raceNo}
+              AND mtp_bucket = 15
               LIMIT 20
             `,
             sql`
               SELECT runner_number, odds
               FROM odds_snapshots
               WHERE date = ${isoDate}
-                AND venue = ${venueCode.toUpperCase()}
-                AND race_no = ${raceNo}
-                AND mtp_bucket = 30
+              AND venue = ${venueCode.toUpperCase()}
+              AND race_no = ${raceNo}
+              AND mtp_bucket = 30
               LIMIT 20
             `,
             sql`
               SELECT runner_number, finish_pos
               FROM race_results
               WHERE date::date = ${isoDate}::date
-                AND venue = ${venueCode.toUpperCase()}
-                AND race_no = ${raceNo}
+              AND venue = ${venueCode.toUpperCase()}
+              AND race_no = ${raceNo}
             `,
           ])
           min15Rows.forEach((row: any) => {
@@ -656,7 +618,6 @@ export const handler: Handler = async (event) => {
             if (!min30OddsMap[runnerNum]) min30OddsMap[runnerNum] = parseFloat(row.odds)
           })
           resultRows.forEach((row: any) => {
-            // Some results might be '1' and some might be '01', standardizing to '01'
             const runnerNum = String(row.runner_number).replace(/\D/g, "").padStart(2, "0")
             resultsMap[runnerNum] = parseInt(row.finish_pos)
           })
@@ -674,12 +635,13 @@ export const handler: Handler = async (event) => {
           raceName: race.raceName_ch ?? race.raceName_en ?? `Race ${raceNo}`,
         })
       }
-      const distance = parseInt(String(race.distance ?? '1200'), 10) || 1200
+
+      const distance = parseInt(String(race.distance ?? "1200"), 10) || 1200
       const isSprint = distance <= 1200
-      
-      const goingStr = ((race.go_ch ?? '') + (race.go_en ?? '')).toUpperCase()
+
+      const goingStr = ((race.go_ch ?? "") + (race.go_en ?? "")).toUpperCase()
       const isWet = goingStr.includes("SOFT") || goingStr.includes("YIELDING")
-      
+
       const groundKey = isWet ? "變化地" : "正常地"
       const raceTypeKey = isSprint ? "短途" : "中長途"
       const statCategory = `${raceTypeKey}${groundKey}`
@@ -701,248 +663,249 @@ export const handler: Handler = async (event) => {
             ? r.last6run.split(/[/\- ]/).slice(0, 3).join("/")
             : "—"
 
-        const horseCode = r.horse?.code || ""
-        const age = estimateAge(horseCode)
+          const horseCode = r.horse?.code || ""
+          const age = estimateAge(horseCode)
 
-        let weightRange = "120-124"
-        if (weight >= 130) weightRange = "130+"
-        else if (weight >= 125) weightRange = "125-129"
-        else if (weight < 120) weightRange = "<119"
+          let weightRange = "120-124"
+          if (weight >= 130) weightRange = "130+"
+          else if (weight >= 125) weightRange = "125-129"
+          else if (weight < 120) weightRange = "<119"
 
-        const statWinRate = STAT_WIN_RATES[statCategory]?.[weightRange] || 40
-        const statScore = statWinRate / 100
+          const statWinRate = STAT_WIN_RATES[statCategory]?.[weightRange] || 40
+          const statScore = statWinRate / 100
 
-        const weightRD = (weight / horseWeight) * distance
-        const burdenScore = Math.max(0, (benchmark - weightRD) / benchmark)
+          const weightRD = (weight / horseWeight) * distance
+          const burdenScore = Math.max(0, (benchmark - weightRD) / benchmark)
 
-        let ageBonus = 1.0
-        let ageStage: "risingstar" | "primewarrior" | "veteran" | "unknown" = "veteran"
-        let ageStageLabel = ""
-        if (age <= 3) {
-          ageBonus = AGE_FACTORS["2-3歲"]
-          ageStage = "risingstar"
-          ageStageLabel = "潛力新星"
-        } else if (age <= 5) {
-          ageBonus = AGE_FACTORS["4-5歲"]
-          ageStage = "primewarrior"
-          ageStageLabel = "巔峰戰將"
-        } else {
-          ageBonus = AGE_FACTORS["6-10歲"]
-          ageStage = "veteran"
-          ageStageLabel = "沙場老將"
-        }
-
-        let c = 0.055
-        if (distance >= 2200) c = 0.22
-        else if (distance >= 1800) c = 0.16
-        else if (distance >= 1400) c = 0.11
-
-        const deltaW = weight - 120
-        const deltaTBase = (deltaW / 2) * c
-
-        let fGround = 1.0
-        if (goingStr.includes("大爛地") || goingStr.includes("爛") || goingStr.includes("HEAVY")) fGround = 1.30
-        else if (
-          goingStr.includes("軟") ||
-          goingStr.includes("SOFT") ||
-          goingStr.includes("YIELDING") ||
-          goingStr.includes("黏")
-        )
-          fGround = 1.15
-        else if (goingStr === "好地" || goingStr.includes("GOOD") && !goingStr.includes("FIRM")) fGround = 1.05
-        else if (
-          goingStr.includes("好至快") ||
-          (goingStr.includes("好") && goingStr.includes("快")) ||
-          goingStr.includes("GOOD TO FIRM") ||
-          goingStr.includes("GOOD/FIRM") ||
-          goingStr.includes("FIRM")
-        )
-          fGround = 1.00
-
-        let fStyle = 1.0
-        const runNums = (r.last6run ?? "").split(/[/\- ]/).map(Number).filter((n: number) => !isNaN(n) && n > 0)
-        // 跑法修正：領放/前置 0.95，跟前 1.00，後追 1.05 (長途 1.10)
-        if (runNums.includes(1) || runNums.includes(2)) fStyle = 0.95
-        else if (runNums.some((n: number) => n >= 9)) {
-          fStyle = distance >= 1400 ? 1.10 : 1.05
-        }
-
-        const timeAdvantage = deltaTBase * fGround * fStyle
-        const ratingScore = Math.min(1.0, currentRating / classLimit)
-        const timeScore = Math.max(0, Math.min(1.0, 0.5 - timeAdvantage))
-
-        const conditionMult = getConditionMult(last3Form)
-        let conditionLabel = ""
-        if (conditionMult >= 1.1) conditionLabel = "上升中"
-        else if (conditionMult >= 1.0) conditionLabel = "狀態穩"
-        else if (conditionMult <= 0.8) conditionLabel = "狀態差"
-        else conditionLabel = "略降"
-
-        const { wStat, wBurden, wRating, wAge, wTime } = dynamicWeights
-        const rawScore =
-          (statScore * wStat +
-            burdenScore * wBurden +
-            ratingScore * wRating +
-            ageBonus * wAge +
-            timeScore * wTime) *
-          100
-        const score = Math.round(rawScore * conditionMult)
-
-        const marketImpliedProb = hasOdds ? 1 / (winOdds + 1) : 1 / 99
-
-        let grade: "A" | "B" | "C" | "D" = "D"
-        if (rawScore >= 80) grade = "A"
-        else if (rawScore >= 60) grade = "B"
-        else if (rawScore >= 40) grade = "C"
-
-        const riskFactors: string[] = []
-        if (weight > 130) riskFactors.push("負磅過重(>130)")
-        if (conditionMult < 0.9) riskFactors.push("狀態下滑")
-        if (weight / horseWeight > 0.13) riskFactors.push("負磅體重比異常(>13%)")
-        if (age >= 8 && conditionMult < 1.0) riskFactors.push("老齡退化")
-
-        const displayOdds = hasOdds ? winOdds : "—"
-        const placeOddsStr = placeOddsMap[r.no.padStart(2, "0")] || placeOddsMap[r.no] || ""
-        const placeOdds = placeOddsStr ? parseFloat(placeOddsStr) : "—"
-
-        const weightRatio = (weight / horseWeight) * 100
-        const weightD = weight * distance
-
-        let displayRunnerNumber: string | number = parseInt(r.no)
-        if (
-          !r.no ||
-          isNaN(displayRunnerNumber as number) ||
-          String(r.no).toLowerCase().includes("standby") ||
-          String(r.no).includes("後備")
-        ) {
-          const match = String(r.no || "").match(/\d+/)
-          displayRunnerNumber = match ? `R${match[0]}` : "R"
-        }
-
-        // ── Odds history ──────────────────────────────────────────────────
-        const oddsHistory: any = { overnight: null, min30: null, min15: null, current: displayOdds }
-        const runnerKey = String(displayRunnerNumber).replace(/\D/g, "").padStart(2, "0")
-        if (historicalOddsMap[runnerKey]) oddsHistory.min15 = historicalOddsMap[runnerKey]
-        if (min30OddsMap[runnerKey]) oddsHistory.min30 = min30OddsMap[runnerKey]
-
-        // Fallback: deterministic drift when no Neon data yet
-        if (!oddsHistory.min15 && displayOdds !== "—") {
-          const oddsNum = parseFloat(String(displayOdds))
-          if (!isNaN(oddsNum)) {
-            const num =
-              typeof displayRunnerNumber === "string"
-                ? parseInt(displayRunnerNumber.replace(/\D/g, "")) || 0
-                : displayRunnerNumber
-            const drift = ((num as number) % 11 - 5) / 100
-            oddsHistory.min15 = parseFloat((oddsNum * (1 - drift)).toFixed(1))
+          let ageBonus = 1.0
+          let ageStage: "risingstar" | "primewarrior" | "veteran" | "unknown" = "veteran"
+          let ageStageLabel = ""
+          if (age <= 3) {
+            ageBonus = AGE_FACTORS["2-3歲"]
+            ageStage = "risingstar"
+            ageStageLabel = "潛力新星"
+          } else if (age <= 5) {
+            ageBonus = AGE_FACTORS["4-5歲"]
+            ageStage = "primewarrior"
+            ageStageLabel = "巔峰戰將"
+          } else {
+            ageBonus = AGE_FACTORS["6-10歲"]
+            ageStage = "veteran"
+            ageStageLabel = "沙場老將"
           }
-        }
 
-        // ── Pool reverse-engineering (pre-race uses 28M/20M estimate) ─────
-        const DEDUCT = 0.825
-        const WIN_BASE = poolsData.WIN || 28_000_000 // Fallback if 0
-        const QIN_BASE = poolsData.QIN || 20_000_000 // Fallback if 0
-        const QPL_BASE = poolsData.QPL || 15_000_000 // Fallback if 0
+          let c = 0.055
+          if (distance >= 2200) c = 0.22
+          else if (distance >= 1800) c = 0.16
+          else if (distance >= 1400) c = 0.11
 
-        const estWinInvestment =
-          hasOdds && winOdds > 0
-            ? Math.round((WIN_BASE * DEDUCT) / winOdds)
-            : null
+          const deltaW = weight - 120
+          const deltaTBase = (deltaW / 2) * c
 
-        const rNo = String(r.no).padStart(2, "0")
-        
-        // Aggregate QIN Investment
-        let qinSum = 0
-        Object.entries(qinOddsMap).forEach(([combo, odds]) => {
-          if (odds > 0 && QIN_BASE > 0) {
-            // QIN combo string e.g., "01,02" or "1,2"
-            const parts = combo.split(",").map((x: string) => x.padStart(2, "0"))
-            if (parts.includes(rNo)) qinSum += (QIN_BASE * DEDUCT) / odds
+          let fGround = 1.0
+          if (goingStr.includes("大爛地") || goingStr.includes("爛") || goingStr.includes("HEAVY")) {
+            fGround = 1.30
+          } else if (
+            goingStr.includes("軟") ||
+            goingStr.includes("SOFT") ||
+            goingStr.includes("YIELDING") ||
+            goingStr.includes("黏")
+          ) {
+            fGround = 1.15
+          } else if (goingStr === "好地" || (goingStr.includes("GOOD") && !goingStr.includes("FIRM"))) {
+            fGround = 1.05
+          } else if (
+            goingStr.includes("好至快") ||
+            (goingStr.includes("好") && goingStr.includes("快")) ||
+            goingStr.includes("GOOD TO FIRM") ||
+            goingStr.includes("GOOD/FIRM") ||
+            goingStr.includes("FIRM")
+          ) {
+            fGround = 1.00
           }
-        })
-        const estQINInvestment = qinSum > 0 ? Math.round(qinSum) : null
 
-        // Aggregate QPL Investment
-        let qplSum = 0
-        Object.entries(qplOddsMap).forEach(([combo, odds]) => {
-          if (odds > 0 && QPL_BASE > 0) {
-            const parts = combo.split(",").map((x: string) => x.padStart(2, "0"))
-            if (parts.includes(rNo)) qplSum += (QPL_BASE * DEDUCT) / odds
+          let fStyle = 1.0
+          const runNums = (r.last6run ?? "").split(/[/\- ]/).map(Number).filter((n: number) => !isNaN(n) && n > 0)
+          if (runNums.includes(1) || runNums.includes(2)) {
+            fStyle = 0.95
+          } else if (runNums.some((n: number) => n >= 9)) {
+            fStyle = distance >= 1400 ? 1.10 : 1.05
           }
-        })
-        const estQPLInvestment = qplSum > 0 ? Math.round(qplSum) : null
 
-        let moneyAlert: "large_bet" | "drifting" | null = null
-        if (oddsHistory.min30 && !isNaN(parseFloat(r.winOdds))) {
-          const prev = oddsHistory.min30
-          const curr = parseFloat(r.winOdds)
-          // 更改：賠率下跌 ≥ 20% 觸發大戶落飛警報 (原本是 30%)
-          if (curr <= prev * 0.8) moneyAlert = "large_bet"
-          else if (curr >= prev * 1.2) moneyAlert = "drifting"
-        }
+          const timeAdvantage = deltaTBase * fGround * fStyle
+          const ratingScore = Math.min(1.0, currentRating / classLimit)
+          const timeScore = Math.max(0, Math.min(1.0, 0.5 - timeAdvantage))
 
-        const finalPosition = resultsMap[runnerKey] || null
+          const conditionMult = getConditionMult(last3Form)
+          let conditionLabel = ""
+          if (conditionMult >= 1.1) conditionLabel = "上升中"
+          else if (conditionMult >= 1.0) conditionLabel = "狀態穩"
+          else if (conditionMult <= 0.8) conditionLabel = "狀態差"
+          else conditionLabel = "略降"
 
-        return [{
-          runnerNumber: displayRunnerNumber,
-          runnerName: r.name_ch || r.name_en,
-          jockey: r.jockey?.name_ch || r.jockey?.name_en || "未知",
-          trainer: r.trainer?.name_ch || r.trainer?.name_en || "未知",
-          draw: parseInt(r.barrierDrawNumber) || 0,
-          weight,
-          winProbability: 0,
-          placeProb: Math.round(score * 0.7),
-          winOdds: displayOdds,
-          placeOdds,
-          score,
-          grade,
-          rating: currentRating,
-          horseWeight,
-          last3Form,
-          investmentLabel: "NONE",
-          riskFactors,
-          weightD,
-          weightRatio: parseFloat(weightRatio.toFixed(2)),
-          weightRD: parseFloat(weightRD.toFixed(2)),
-          timeAdvantage: parseFloat(timeAdvantage.toFixed(3)),
-          statRate: parseFloat(statWinRate.toFixed(1)),
-          statScore: parseFloat((statScore * 100).toFixed(1)),
-          ratingScore: parseFloat((ratingScore * 100).toFixed(1)),
-          age,
-          ageStage,
-          ageStageLabel,
-          ageBonus,
-          conditionLabel,
-          conditionMultiplier: conditionMult,
-          marketImpliedProb: parseFloat(marketImpliedProb.toFixed(4)),
-          winProbModel: 0,
-          modelOdds: 0,
-          diffProb: 0,
-          expectedValue: 0,
-          kellyFraction: 0,
-          analysis: `【${grade}級】綜合評分 ${(score / 100).toFixed(2)} (A:0.8+, B:0.6+)。${
-            timeAdvantage < 0
-              ? `具備 ${Math.abs(timeAdvantage).toFixed(3)}s 時間優勢`
-              : timeAdvantage > 0
-              ? `存在 ${timeAdvantage.toFixed(3)}s 時間劣勢`
-              : `時間差 0.000s`
-          }。累積負擔(WeightRD) ${weightRD.toFixed(1)}，標準區間(${benchmark.toFixed(1)})。`,
-          oddsHistory,
-          estWinInvestment,
-          estQINInvestment,
-          estQPLInvestment,
-          moneyAlert,
-          isTheoretical: isPreRace,
-          finalPosition,
-        }]
+          const { wStat, wBurden, wRating, wAge, wTime } = dynamicWeights
+          const rawScore =
+            (statScore * wStat +
+              burdenScore * wBurden +
+              ratingScore * wRating +
+              ageBonus * wAge +
+              timeScore * wTime) *
+            100
+          const score = Math.round(rawScore * conditionMult)
+
+          const marketImpliedProb = hasOdds ? 1 / (winOdds + 1) : 1 / 99
+
+          let grade: "A" | "B" | "C" | "D" = "D"
+          if (rawScore >= 80) grade = "A"
+          else if (rawScore >= 60) grade = "B"
+          else if (rawScore >= 40) grade = "C"
+
+          const riskFactors: string[] = []
+          if (weight > 130) riskFactors.push("負磅過重(>130)")
+          if (conditionMult < 0.9) riskFactors.push("狀態下滑")
+          if (weight / horseWeight > 0.13) riskFactors.push("負磅體重比異常(>13%)")
+          if (age >= 8 && conditionMult < 1.0) riskFactors.push("老齡退化")
+
+          const displayOdds = hasOdds ? winOdds : "—"
+          const placeOddsStr = placeOddsMap[r.no.padStart(2, "0")] || placeOddsMap[r.no] || ""
+          const placeOdds = placeOddsStr ? parseFloat(placeOddsStr) : "—"
+
+          const weightRatio = (weight / horseWeight) * 100
+          const weightD = weight * distance
+
+          let displayRunnerNumber: string | number = parseInt(r.no)
+          if (
+            !r.no ||
+            isNaN(displayRunnerNumber as number) ||
+            String(r.no).toLowerCase().includes("standby") ||
+            String(r.no).includes("後備")
+          ) {
+            const match = String(r.no || "").match(/\d+/)
+            displayRunnerNumber = match ? `R${match[0]}` : "R"
+          }
+
+          // ── Odds history ──────────────────────────────────────────────────
+          const oddsHistory: any = { overnight: null, min30: null, min15: null, current: displayOdds }
+          const runnerKey = String(displayRunnerNumber).replace(/\D/g, "").padStart(2, "0")
+          if (historicalOddsMap[runnerKey]) oddsHistory.min15 = historicalOddsMap[runnerKey]
+          if (min30OddsMap[runnerKey]) oddsHistory.min30 = min30OddsMap[runnerKey]
+
+          // Fallback: deterministic drift when no Neon data yet
+          if (!oddsHistory.min15 && displayOdds !== "—") {
+            const oddsNum = parseFloat(String(displayOdds))
+            if (!isNaN(oddsNum)) {
+              const num =
+                typeof displayRunnerNumber === "string"
+                  ? parseInt(displayRunnerNumber.replace(/\D/g, "")) || 0
+                  : displayRunnerNumber
+              const drift = ((num as number) % 11 - 5) / 100
+              oddsHistory.min15 = parseFloat((oddsNum * (1 - drift)).toFixed(1))
+            }
+          }
+
+          // ── Pool reverse-engineering (pre-race uses 28M/20M estimate) ─────
+          const DEDUCT = 0.825
+          const WIN_BASE = poolsData.WIN || 28_000_000
+          const QIN_BASE = poolsData.QIN || 20_000_000
+          const QPL_BASE = poolsData.QPL || 15_000_000
+
+          const estWinInvestment =
+            hasOdds && winOdds > 0
+              ? Math.round((WIN_BASE * DEDUCT) / winOdds)
+              : null
+
+          const rNo = String(r.no).padStart(2, "0")
+
+          // Aggregate QIN Investment
+          let qinSum = 0
+          Object.entries(qinOddsMap).forEach(([combo, odds]) => {
+            if (odds > 0 && QIN_BASE > 0) {
+              const parts = combo.split(",").map((x: string) => x.padStart(2, "0"))
+              if (parts.includes(rNo)) qinSum += (QIN_BASE * DEDUCT) / odds
+            }
+          })
+          const estQINInvestment = qinSum > 0 ? Math.round(qinSum) : null
+
+          // Aggregate QPL Investment
+          let qplSum = 0
+          Object.entries(qplOddsMap).forEach(([combo, odds]) => {
+            if (odds > 0 && QPL_BASE > 0) {
+              const parts = combo.split(",").map((x: string) => x.padStart(2, "0"))
+              if (parts.includes(rNo)) qplSum += (QPL_BASE * DEDUCT) / odds
+            }
+          })
+          const estQPLInvestment = qplSum > 0 ? Math.round(qplSum) : null
+
+          let moneyAlert: "large_bet" | "drifting" | null = null
+          if (oddsHistory.min30 && !isNaN(parseFloat(r.winOdds))) {
+            const prev = oddsHistory.min30
+            const curr = parseFloat(r.winOdds)
+            // 賠率下跌 ≥ 20% 觸發大戶落飛警報
+            if (curr <= prev * 0.8) moneyAlert = "large_bet"
+            else if (curr >= prev * 1.2) moneyAlert = "drifting"
+          }
+
+          const finalPosition = resultsMap[runnerKey] || null
+
+          return [{
+            runnerNumber: displayRunnerNumber,
+            runnerName: r.name_ch || r.name_en,
+            jockey: r.jockey?.name_ch || r.jockey?.name_en || "未知",
+            trainer: r.trainer?.name_ch || r.trainer?.name_en || "未知",
+            draw: parseInt(r.barrierDrawNumber) || 0,
+            weight,
+            winProbability: 0,
+            placeProb: Math.round(score * 0.7),
+            winOdds: displayOdds,
+            placeOdds,
+            score,
+            grade,
+            rating: currentRating,
+            horseWeight,
+            last3Form,
+            investmentLabel: "NONE",
+            riskFactors,
+            weightD,
+            weightRatio: parseFloat(weightRatio.toFixed(2)),
+            weightRD: parseFloat(weightRD.toFixed(2)),
+            timeAdvantage: parseFloat(timeAdvantage.toFixed(3)),
+            statRate: parseFloat(statWinRate.toFixed(1)),
+            statScore: parseFloat((statScore * 100).toFixed(1)),
+            ratingScore: parseFloat((ratingScore * 100).toFixed(1)),
+            age,
+            ageStage,
+            ageStageLabel,
+            ageBonus,
+            conditionLabel,
+            conditionMultiplier: conditionMult,
+            marketImpliedProb: parseFloat(marketImpliedProb.toFixed(4)),
+            winProbModel: 0,
+            modelOdds: 0,
+            diffProb: 0,
+            expectedValue: 0,
+            kellyFraction: 0,
+            analysis: `【${grade}級】綜合評分 ${(score / 100).toFixed(2)} (A:0.8+, B:0.6+)。${
+              timeAdvantage < 0
+                ? `具備 ${Math.abs(timeAdvantage).toFixed(3)}s 時間優勢`
+                : timeAdvantage > 0
+                ? `存在 ${timeAdvantage.toFixed(3)}s 時間劣勢`
+                : `時間差 0.000s`
+            }。累積負擔(WeightRD) ${weightRD.toFixed(1)}，標準區間(${benchmark.toFixed(1)})。`,
+            oddsHistory,
+            estWinInvestment,
+            estQINInvestment,
+            estQPLInvestment,
+            moneyAlert,
+            isTheoretical: isPreRace,
+            finalPosition,
+          }]
         } catch (runnerErr: any) {
           console.error(`Runner ${r?.no} parse error:`, runnerErr?.message)
-          // Return a minimal fallback so the race still loads
           return [{
-            runnerNumber: r?.no ?? '?',
+            runnerNumber: r?.no ?? "?",
             runnerName: r?.name_ch ?? r?.name_en ?? `Runner ${r?.no}`,
-            jockey: r?.jockey?.name_ch ?? r?.jockey?.name_en ?? '—',
-            trainer: r?.trainer?.name_ch ?? r?.trainer?.name_en ?? '—',
+            jockey: r?.jockey?.name_ch ?? r?.jockey?.name_en ?? "—",
+            trainer: r?.trainer?.name_ch ?? r?.trainer?.name_en ?? "—",
             draw: 0,
             weight: 120,
             winProbability: 0,
@@ -980,7 +943,7 @@ export const handler: Handler = async (event) => {
             estWinInvestment: null,
             estQINInvestment: null,
             estQPLInvestment: null,
-            moneyAlert: "steady",
+            moneyAlert: null,
             isTheoretical: true,
             finalPosition: null,
           }]
@@ -1006,7 +969,7 @@ export const handler: Handler = async (event) => {
           }
         }
 
-        // ── Combat advice (Revised logic for GO/CAUTION based on EV) ──
+        // ── Combat advice ──────────────────────────────────────────────
         const ev = p.expectedValue
         let advice = ""
         let combatStatus: "AVOID" | "SHADOW" | "CAUTION" | "GO" = "AVOID"
@@ -1065,15 +1028,24 @@ export const handler: Handler = async (event) => {
         return a.runnerNumber - b.runnerNumber
       })
 
-            // ── Odds structure classification ──────────────────────────────────
+      // ── Odds structure classification ──────────────────────────────────
       const oddsStructure = analyzeOddsStructure(predictions, isPreRace)
 
       const validPredictions = predictions.filter((p: any) => !String(p.runnerNumber).startsWith("R"))
       let topPick = validPredictions.length > 0 ? validPredictions[0] : predictions[0]
       let summaryTextBase = `AI 四維度分析（按模型賠率排名）：首選 #${topPick.runnerNumber} ${topPick.runnerName}（模型賠率 ${topPick.modelOdds}）。`
 
-      // 混亂局 AI系統首選 logic: 從半冷門馬(od2: 10~19.9)中，找異常柱體比例 (QIN / WIN 比例最高)
+      // ══════════════════════════════════════════════════════════════════════
+      // 混亂局 AI 首選邏輯：從半冷馬(od2: 10~19.9)中，找 QIN/WIN 柱體比例最高者
+      //
+      // FIX 1: 使用有意義的異常門檻，pre-race 估算場景門檻更高
+      // FIX 2: 使用 Map 儲存比例，不污染原始 prediction 物件
+      // FIX 3: 無足夠異常信號時，仍在 summaryText 標示賽局類型
+      // ══════════════════════════════════════════════════════════════════════
       if (oddsStructure.raceTypeCode === "CHAOTIC") {
+        // pre-race 時兩個投注池都用估算基數，QIN 因組合數多天然偏高，門檻須更嚴格
+        const CHAOTIC_QIN_THRESHOLD = isPreRace ? 3.0 : 1.5
+
         const od2Runners = validPredictions.filter((p: any) => {
           if (p.winOdds === "—") return false
           const odds = parseFloat(String(p.winOdds))
@@ -1081,20 +1053,31 @@ export const handler: Handler = async (event) => {
         })
 
         if (od2Runners.length > 0) {
+          // 用 Map 儲存比例，避免污染 prediction 物件回傳給前端
+          const qinRatioMap = new Map<any, number>()
           od2Runners.forEach((p: any) => {
             const winInv = p.estWinInvestment || 0
             const qinInv = p.estQINInvestment || 0
-            p._qinRatio = winInv > 0 ? qinInv / winInv : 0
+            qinRatioMap.set(p, winInv > 0 ? qinInv / winInv : 0)
           })
-          
-          od2Runners.sort((a: any, b: any) => b._qinRatio - a._qinRatio)
-          
+
+          od2Runners.sort((a: any, b: any) => (qinRatioMap.get(b) ?? 0) - (qinRatioMap.get(a) ?? 0))
+
           const bestOd2 = od2Runners[0]
-          // 確保有異常比例才替換首選 (例如比例 > 0.5)
-          if (bestOd2._qinRatio > 0) {
+          const bestRatio = qinRatioMap.get(bestOd2) ?? 0
+
+          console.log(`[CHAOTIC] isPreRace=${isPreRace} threshold=${CHAOTIC_QIN_THRESHOLD} bestOd2=#${bestOd2.runnerNumber} ratio=${bestRatio.toFixed(2)}`)
+
+          if (bestRatio >= CHAOTIC_QIN_THRESHOLD) {
             topPick = bestOd2
-            summaryTextBase = `【混亂局特選】AI 偵測到半冷馬異常資金：首選 #${topPick.runnerNumber} ${topPick.runnerName}（賠率 ${topPick.winOdds}，QIN 柱體異常比例 ${(topPick._qinRatio).toFixed(1)}x）。`
+            summaryTextBase = `【混亂局特選】AI 偵測到半冷馬異常資金：首選 #${topPick.runnerNumber} ${topPick.runnerName}（賠率 ${topPick.winOdds}，QIN 柱體異常比例 ${bestRatio.toFixed(1)}x）。`
+          } else {
+            // 信號不足，維持模型首選但提示賽局類型
+            summaryTextBase = `【混亂局】半冷馬資金信號不足（最高比例 ${bestRatio.toFixed(1)}x，未達門檻 ${CHAOTIC_QIN_THRESHOLD}x）。` + summaryTextBase
           }
+        } else {
+          // 無 od2 馬（全場無10-19.9賠率馬），仍標示賽局類型
+          summaryTextBase = `【混亂局】本場無半冷馬(od2)可供分析，維持模型首選。` + summaryTextBase
         }
       }
 
@@ -1173,10 +1156,11 @@ export const handler: Handler = async (event) => {
     if (pathname === "/push-send" && method === "POST") {
       const authHeader = event.headers.authorization
       const expectedToken = `Bearer ${process.env.CRON_SECRET}`
-      
+
       if (!process.env.CRON_SECRET || authHeader !== expectedToken) {
         return json(401, { error: "Unauthorized" })
       }
+
       if (!process.env.DATABASE_URL) return json(500, { error: "DATABASE_URL not configured" })
 
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ""
@@ -1195,17 +1179,20 @@ export const handler: Handler = async (event) => {
           url: payload.url || "/",
           icon: payload.icon || "/icons/icon-192x192.png",
           tag: payload.tag || "alert",
-          vibrate: payload.vibrate || [200, 100, 200]
+          vibrate: payload.vibrate || [200, 100, 200],
         })
 
         const sql = neon(process.env.DATABASE_URL)
         const subscriptions = await sql`SELECT * FROM push_subscriptions`
-        
+
         if (subscriptions.length === 0) return json(200, { success: true, message: "No active subscriptions" })
 
         const sendPromises = subscriptions.map(async (sub) => {
           try {
-            await webpush.sendNotification({ endpoint: sub.endpoint, keys: { auth: sub.auth, p256dh: sub.p256dh } }, notificationPayload)
+            await webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { auth: sub.auth, p256dh: sub.p256dh } },
+              notificationPayload
+            )
             return { success: true, endpoint: sub.endpoint }
           } catch (err: any) {
             if (err.statusCode === 410 || err.statusCode === 404) {
@@ -1216,11 +1203,11 @@ export const handler: Handler = async (event) => {
         })
 
         const results = await Promise.all(sendPromises)
-        return json(200, { 
-          success: true, 
+        return json(200, {
+          success: true,
           sent: results.filter(r => r.success).length,
           failed: results.filter(r => !r.success).length,
-          results 
+          results,
         })
       } catch (e: any) {
         return json(500, { error: "Internal server error", detail: e.message })

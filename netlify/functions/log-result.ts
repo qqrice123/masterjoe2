@@ -19,8 +19,8 @@ import type { Config } from "@netlify/functions"
 
 const sql = neon(process.env.DATABASE_URL!)
 
-// HKJC results page URL
-const HKJC_RESULT_URL = "https://racing.hkjc.com/racing/information/English/Racing/LocalResults.aspx"
+// HKJC results page URL (Chinese version for matching go_ch and raceClass_ch)
+const HKJC_RESULT_URL = "https://racing.hkjc.com/zh-hk/local/information/localresults"
 
 interface RaceResult {
   date: string
@@ -96,19 +96,22 @@ export const handler = async (event: any) => {
         break
       }
 
-      // Parse race metadata
-      const raceInfoText = root.querySelector(".raceinfobar")?.text ?? ""
-      const distanceMatch = raceInfoText.match(/(\d{4})\s*M/i)
-      const goingMatch = raceInfoText.match(/Going\s*:\s*([^\n\r]+)/i)
-      const classMatch = raceInfoText.match(/Class\s*(\d+)/i)
-      const isHV = raceInfoText.includes("Happy Valley") || raceInfoText.includes("HV")
+      // Parse race metadata from the Chinese page
+      const tbodyElements = root.querySelectorAll(".f_fs13")
+      const raceInfoText = tbodyElements.length > 1 ? tbodyElements[1].text : (tbodyElements[0]?.text ?? "")
+      
+      const distanceMatch = raceInfoText.match(/(\d{4})\s*米/i)
+      const goingMatch = raceInfoText.match(/場地狀況\s*:\s*([^\n\r]+)/i)
+      const classMatch = raceInfoText.match(/(第[一二三四五六]班|[^\n\r]+賽)/)
+      
+      const isHV = root.innerHTML.includes("跑馬地")
       const venue = isHV ? "HV" : "ST"
-      const raceNameEl = root.querySelector(".racenamebox h2, .racename")
+      const raceNameEl = root.querySelector(".bg_blue.color_w.font_wb")
 
       const distance = distanceMatch ? parseInt(distanceMatch[1]) : 0
       const going = goingMatch ? goingMatch[1].trim() : ""
-      const raceClass = classMatch ? `Class ${classMatch[1]}` : "Open"
-      const raceName = raceNameEl?.text?.trim() ?? ""
+      const raceClass = classMatch ? classMatch[1].trim() : "Open"
+      const raceName = raceNameEl?.text?.trim().replace(/\s+/g, ' ') ?? ""
 
       // Parse each horse row
       const rows = resultTable.querySelectorAll("tr")
@@ -121,7 +124,9 @@ export const handler = async (event: any) => {
         if (isNaN(finishPos)) continue
 
         const runnerNumber = cells[1].text.trim()
-        const horseName = cells[2].text.trim()
+        let horseName = cells[2].text.trim()
+        // Remove brand number e.g. "通情達理 (L183)" -> "通情達理"
+        horseName = horseName.replace(/\s*\(.*?\)\s*/g, '').trim()
         const weight = parseInt(cells[4].text.trim()) || 0
         // Win odds is usually second-to-last column
         const winOdds = parseFloat(cells[cells.length - 2].text.trim()) || 0
