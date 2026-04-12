@@ -127,9 +127,9 @@ export const handler = async (event: any) => {
         let horseName = cells[2].text.trim()
         // Remove brand number e.g. "通情達理 (L183)" -> "通情達理"
         horseName = horseName.replace(/\s*\(.*?\)\s*/g, '').trim()
-        const weight = parseInt(cells[4].text.trim()) || 0
-        // Win odds is usually second-to-last column
-        const winOdds = parseFloat(cells[cells.length - 2].text.trim()) || 0
+        const weight = parseInt(cells[5].text.trim()) || 0
+        // Win odds is the last column
+        const winOdds = parseFloat(cells[cells.length - 1].text.trim()) || 0
 
         allResults.push({
           date,
@@ -178,7 +178,10 @@ export const handler = async (event: any) => {
             finish_pos = EXCLUDED.finish_pos,
             win_odds = EXCLUDED.win_odds,
             going = EXCLUDED.going,
-            race_name = EXCLUDED.race_name
+            race_name = EXCLUDED.race_name,
+            weight = EXCLUDED.weight,
+            weight_band = EXCLUDED.weight_band,
+            horse_name = EXCLUDED.horse_name
         `
       })
     )
