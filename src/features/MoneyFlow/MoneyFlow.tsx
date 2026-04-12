@@ -10,6 +10,7 @@ import { OddsStructureBanner } from "../AnalyticsDashboard/OddsStructureBanner"
 import type { XAxisProps } from "recharts"
 import { aiEngine } from "../../services/aiLearning"
 import { OddsStructure, Prediction, RaceDetail } from "../../services/api"
+import { AlertFeed } from "./AlertFeed"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const CHART_COLORS = {
@@ -228,87 +229,6 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({ prediction
         </Bar>
       </BarChart>
     </ResponsiveContainer>
-  )
-})
-
-// ─── Sub-component: AlertFeed ─────────────────────────────────────────────────
-const AlertFeed = memo(function AlertFeed({ predictions }: { predictions: Prediction[] }) {
-  const alerts = predictions
-    .filter(p => p.moneyAlert === "large_bet" || p.moneyAlert === "drifting")
-    .sort((a, b) => {
-      // large_bet first, then by win investment desc
-      if (a.moneyAlert !== b.moneyAlert)
-        return a.moneyAlert === "large_bet" ? -1 : 1
-      return (b.estWinInvestment ?? 0) - (a.estWinInvestment ?? 0)
-    })
-
-  if (alerts.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 gap-2">
-        <div className="text-2xl">🔍</div>
-        <p className="text-slate-500 text-sm">暫無異常資金警報</p>
-        <p className="text-slate-600 text-xs">賠率大幅下跌（≥20%）時觸發大戶警報</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-2">
-      {alerts.map(p => {
-        const isLargeBet = p.moneyAlert === "large_bet"
-        const cur  = parseFloat(String(p.oddsHistory.current))
-        const prev = p.oddsHistory.min15 ?? p.oddsHistory.min30 ?? p.oddsHistory.overnight
-        const drop = prev != null && !isNaN(cur) && Number(prev) > 0 
-          ? ((Number(prev) - cur) / Number(prev) * 100).toFixed(1) 
-          : null
-
-        return (
-          <div
-            key={p.runnerNumber}
-            className={`flex items-center gap-3 rounded-xl p-3 border ${
-              isLargeBet
-                ? "bg-emerald-950/40 border-emerald-700/50"
-                : "bg-red-950/30 border-red-700/40"
-            }`}
-          >
-            <div className="text-xl">{isLargeBet ? "🟢" : "🔴"}</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-slate-100">#{p.runnerNumber}</span>
-                <span className="text-sm text-slate-300 truncate">{p.runnerName}</span>
-                <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
-                  isLargeBet ? "bg-emerald-800/60 text-emerald-300" : "bg-red-800/60 text-red-300"
-                }`}>
-                  {isLargeBet ? "大戶落飛" : "資金撤離"}
-                </span>
-              </div>
-              <div className="text-xs text-slate-400 mt-0.5 flex gap-3 flex-wrap">
-                {drop && (
-                  <span className={isLargeBet ? "text-emerald-400" : "text-red-400"}>
-                    賠率{isLargeBet ? "↓" : "↑"} {drop}%
-                  </span>
-                )}
-                {prev && <span>之前: {prev}</span>}
-                <span>即時: {p.winOdds}</span>
-                {p.estWinInvestment && (
-                  <span className="text-blue-400">
-                    WIN估算: HK${fmt(p.estWinInvestment)}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className={`text-right shrink-0 ${
-              p.grade === "A" ? "text-emerald-400"
-              : p.grade === "B" ? "text-blue-400"
-              : "text-slate-500"
-            }`}>
-              <div className="text-lg font-bold">{p.grade}</div>
-              <div className="text-xs text-slate-500">評級</div>
-            </div>
-          </div>
-        )
-      })}
-    </div>
   )
 })
 
@@ -646,7 +566,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
           </h3>
           <span className="text-xs text-slate-500">賠率下跌 ≥ 20% 觸發</span>
         </div>
-        <AlertFeed predictions={predictions} />
+        <AlertFeed predictions={predictions} isLoading={!raceDetail} />
       </div>
 
       {/* ── Full Odds Table ── */}

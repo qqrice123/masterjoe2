@@ -19,3 +19,36 @@ VALUES
     ('CHAOTIC', 0.2, 1.5, 2.0, 1.5, 0),
     ('UNKNOWN', 1.0, 0.0, 0.0, 0.0, 0)
 ON CONFLICT (race_type) DO NOTHING;
+
+-- 建立 Web Push 訂閱表
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id SERIAL PRIMARY KEY,
+    endpoint TEXT UNIQUE NOT NULL,
+    auth TEXT,
+    p256dh TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 建立警報紀錄表 (Alerts)
+CREATE TABLE IF NOT EXISTS alerts (
+    id SERIAL PRIMARY KEY,
+    alert_id VARCHAR(100) UNIQUE NOT NULL,
+    venue VARCHAR(10) NOT NULL,
+    race_no INTEGER NOT NULL,
+    race_name VARCHAR(100),
+    runner_number VARCHAR(10) NOT NULL,
+    runner_name VARCHAR(100) NOT NULL,
+    alert_type VARCHAR(20) NOT NULL, -- LARGE_BET, LARGE_BET_QIN, QIN_OVERFLOW, DRIFT
+    severity VARCHAR(10) NOT NULL,   -- CRITICAL, HIGH, MEDIUM
+    prev_odds REAL,
+    current_odds REAL,
+    drop_pct REAL,
+    qin_ratio REAL,
+    detected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    date DATE NOT NULL DEFAULT CURRENT_DATE
+);
+
+-- 建立索引以加速查詢
+CREATE INDEX IF NOT EXISTS idx_alerts_date ON alerts(date);
+CREATE INDEX IF NOT EXISTS idx_alerts_detected_at ON alerts(detected_at DESC);

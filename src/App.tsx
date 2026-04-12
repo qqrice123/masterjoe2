@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { AnalyticsDashboard } from "@/features/AnalyticsDashboard"
 import { MoneyFlow } from "@/features/MoneyFlow/MoneyFlow"
+import { NotificationBell } from "@/components/notifications/NotificationBell"
 import { BarChart2, Activity, Lightbulb, History, Moon, Sun, RefreshCw, ChevronDown } from "lucide-react"
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -179,6 +180,9 @@ export default function App() {
 
           {/* Spacer */}
           <div className="flex-1" />
+
+          {/* Notification Bell */}
+          <NotificationBell onNavigateToRace={(r) => setRaceNo(r)} />
 
           {/* Last updated */}
           {lastUpdated && (

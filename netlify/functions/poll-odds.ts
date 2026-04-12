@@ -86,16 +86,20 @@ export const handler: Handler = async (
         const safeMtp = Math.max(-32768, Math.min(32767, mtp)) // smallint range
 
         let oddsNodes: Array<{ combString: string; oddsValue: string }> = []
+        let qinOddsNodes: Array<{ combString: string; oddsValue: string }> = []
+        
         try {
           const oddsResponse: any = await hkjcClient.request(horseOddsQuery, {
             date: meeting.date,
             venueCode: meeting.venueCode,
             raceNo,
-            oddsTypes: ["WIN"],
+            oddsTypes: ["WIN", "QIN"],
           })
           const pools = oddsResponse.raceMeetings?.[0]?.pmPools || []
           const winPool = pools.find((p: any) => p.oddsType === "WIN")
+          const qinPool = pools.find((p: any) => p.oddsType === "QIN")
           oddsNodes = winPool?.oddsNodes || []
+          qinOddsNodes = qinPool?.oddsNodes || []
         } catch (e: any) {
           errors.push(`賠率抓取失敗 ${venue} R${raceNo}: ${e?.message}`)
           continue
@@ -109,6 +113,25 @@ export const handler: Handler = async (
           const key = String(r.no).padStart(2, "0")
           runnersMap[key] = r.name_ch || r.name_en || ""
         }
+        
+        // 取得前一次快照 (用於計算跌幅)
+        let prevOddsMap: Record<string, number> = {}
+        try {
+          const prevSnapshots = await sql`
+            SELECT runner_number, odds FROM odds_snapshots 
+            WHERE date = ${raceDate} AND venue = ${venue} AND race_no = ${raceNo} AND mtp_bucket > ${mtpBucket}
+            ORDER BY mtp_bucket ASC
+          `
+          prevSnapshots.forEach(row => {
+            if (!prevOddsMap[row.runner_number]) {
+              prevOddsMap[row.runner_number] = parseFloat(row.odds)
+            }
+          })
+        } catch (e) {
+          console.error("取得歷史賠率失敗", e)
+        }
+
+        const newAlerts: any[] = []
 
         try {
           const queries = oddsNodes.map((node) => {
@@ -117,7 +140,50 @@ export const handler: Handler = async (
             const odds = parseFloat(node.oddsValue)
             if (isNaN(odds)) return null
 
-            // Use the calculated mtpBucket from upstream
+            // 警報偵測邏輯
+            const prevOdds = prevOddsMap[paddedNo] || prevOddsMap[node.combString]
+            let dropPct: number | null = null
+            let isLargeBet = false
+            
+            if (prevOdds && prevOdds > 0) {
+              dropPct = ((prevOdds - odds) / prevOdds) * 100
+              if (dropPct >= 20) {
+                isLargeBet = true
+              }
+            }
+            
+            if (isLargeBet) {
+              const alertId = `${raceDate}_${venue}_${raceNo}_${paddedNo}_${mtpBucket}`
+              const severity = dropPct && dropPct >= 35 ? "CRITICAL" : "HIGH"
+              newAlerts.push({
+                alertId,
+                venue,
+                raceNo,
+                raceName: race.raceName_ch || race.raceName_en || "",
+                runnerNumber: paddedNo,
+                runnerName: horseName,
+                alertType: "LARGE_BET",
+                severity,
+                prevOdds,
+                currentOdds: odds,
+                dropPct
+              })
+              
+              // 記錄寫入 Alert 的 Query
+              return sql`
+                WITH snapshot_insert AS (
+                  INSERT INTO odds_snapshots (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket)
+                  VALUES (${raceDate}, ${venue}, ${raceNo}, ${node.combString}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket})
+                  ON CONFLICT (date, venue, race_no, runner_number, mtp_bucket) 
+                  DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post
+                )
+                INSERT INTO alerts (alert_id, venue, race_no, race_name, runner_number, runner_name, alert_type, severity, prev_odds, current_odds, drop_pct, date)
+                VALUES (${alertId}, ${venue}, ${raceNo}, ${race.raceName_ch || race.raceName_en || ""}, ${paddedNo}, ${horseName}, 'LARGE_BET', ${severity}, ${prevOdds}, ${odds}, ${dropPct}, ${raceDate})
+                ON CONFLICT (alert_id) DO NOTHING
+              `
+            }
+
+            // 一般的賠率快照更新
             return sql`
               INSERT INTO odds_snapshots
                 (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket)
@@ -131,6 +197,33 @@ export const handler: Handler = async (
           if (queries.length > 0) {
             await sql.transaction(queries)
             totalInserted += queries.length
+          }
+          
+          // 如果有新的警報，觸發 push-send
+          if (newAlerts.length > 0 && process.env.CRON_SECRET) {
+            try {
+              const url = `https://${process.env.SITE_NAME || "masterjoeracing.netlify.app"}/.netlify/functions/api/push-send`
+              // 在本地開發時，若有設定 URL，可以直接呼叫
+              const localUrl = "http://localhost:8888/.netlify/functions/api/push-send"
+              
+              const highestAlert = newAlerts.sort((a, b) => (b.dropPct || 0) - (a.dropPct || 0))[0]
+              
+              await fetch(process.env.NETLIFY_LOCAL ? localUrl : url, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${process.env.CRON_SECRET}`
+                },
+                body: JSON.stringify({
+                  title: `大戶落飛 🚨 R${highestAlert.raceNo} #${highestAlert.runnerNumber}`,
+                  body: `${highestAlert.runnerName} 賠率由 ${highestAlert.prevOdds} 跌至 ${highestAlert.currentOdds} (↓${highestAlert.dropPct.toFixed(1)}%)`,
+                  url: `/?venue=${highestAlert.venue}&race=${highestAlert.raceNo}`,
+                })
+              })
+              console.log(`[poll-odds] 觸發了 ${newAlerts.length} 個警報推播`)
+            } catch (err) {
+              console.error("[poll-odds] 觸發推播失敗", err)
+            }
           }
         } catch (e: any) {
           errors.push(`Neon 寫入失敗 ${venue} R${raceNo}: ${e?.message}`)
