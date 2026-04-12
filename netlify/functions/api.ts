@@ -263,7 +263,10 @@ function analyzeOddsStructure(
   const od3Number = top4[2]?.runnerNumber
   const od4Number = top4[3]?.runnerNumber
 
-  // 計算 od1/od2/od3 分類數量
+  // 計算 od1/od2/od3 分類數量 (匹數)
+  // od1: 熱門馬 (1-9.9倍)
+  // od2: 半冷馬 (10-19.9倍)
+  // od3: 冷馬 (20倍以上)
   const od1Count = withOdds.filter(p => parseFloat(String(p.winOdds)) < 10).length
   const od2Count = withOdds.filter(p => {
     const o = parseFloat(String(p.winOdds))
@@ -274,11 +277,11 @@ function analyzeOddsStructure(
   const oddsPattern = `${od1Count}/${od2Count}/${od3Count}`
   const hotCount = od1Count  // 向下兼容：熱門馬 = od1Count
 
-  // 冷馬候選：od2 和 od3 中賠率 6-30 之間的馬
+  // 冷馬候選：od2 和 od3 中賠率 6-30 之間的馬 (微調：原為6-30，現改為在半冷/冷馬群中挑選)
   const coldCandidates = withOdds
     .filter(p => {
       const o = parseFloat(String(p.winOdds))
-      return o >= 6 && o <= 30
+      return o >= 10 && o <= 30
     })
     .slice(0, 6)
     .map((p) => p.runnerNumber)
@@ -286,10 +289,10 @@ function analyzeOddsStructure(
   const topBanker = withOdds[0].runnerNumber
 
   // ══════════════════════════════════════════════════════════════════════
-  // 規則一：馬膽局 — od1 ≤ 3
+  // 規則一：馬膽局 — od1 (熱門馬匹數) ≤ 3匹
   // 意味著有超班的馬膽存在，投注者一般都是圍繞這些強有力的馬膽來構築投注形式的
   // ══════════════════════════════════════════════════════════════════════
-  if (od1 <= 3) {
+  if (od1Count <= 3) {
     let tip = `強馬膽 #${topBanker}（${od1}）存在。連贏(Q)聚焦首選配搭次選。`
     let qin: OddsStructureResult["qinFocus"] = "od1_group"
 
@@ -303,16 +306,16 @@ function analyzeOddsStructure(
       qinFocus: qin,
       topBanker: String(topBanker),
       coldCandidates: [],
-      description: `馬膽局：有超班的馬膽存在（首選賠率 ${od1}），投注者一般都是圍繞這些強有力的馬膽來構築投注。賠率結構 ${oddsPattern}（熱門/半冷/冷馬）。`,
+      description: `馬膽局：熱門馬僅 ${od1Count} 匹，意味著有超班的馬膽存在，投注者一般都是圍繞這些強有力的馬膽來構築投注。賠率結構 ${oddsPattern}（熱門/半冷/冷馬）。`,
       tip,
     }
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // 規則三：混亂局 — od1 = 4 (實務上抓 3.5 ~ 4.5)
+  // 規則三：混亂局 — od1 (熱門馬匹數) = 4匹
   // 情況變的較為複雜。此時出現Q全在od1中的情況較少，賽果強烈的偏向於在od2和od3中出現冷門
   // ══════════════════════════════════════════════════════════════════════
-  if (od1 >= 3.5 && od1 <= 4.5) {
+  if (od1Count === 4) {
     return {
       raceType: "混亂局", raceTypeCode: "CHAOTIC",
       od1, od2, od3, od4,
@@ -323,20 +326,20 @@ function analyzeOddsStructure(
       qinFocus: "od2_od3_group",
       topBanker: null,
       coldCandidates,
-      description: `混亂局：首選賠率約4（${od1}），情況較為複雜。Q全在首選中出現的情況較少，賽果強烈偏向於在 od2 和 od3 中出現冷門。`,
+      description: `混亂局：熱門馬剛好 ${od1Count} 匹，情況較為複雜。Q全在熱門(od1)中出現的情況較少，賽果強烈偏向於在 od2 和 od3 中出現冷門。`,
       tip: `⚠️ 冷賽果高危場：這是最值得注意的冷賽果信號，應認真比較研究該場賽事模式，特別從冷門馬中（特別是od3）尋找合適的膽和腳。`,
     }
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // 規則二：分立局 — od1 ≥ 4 (排除等於4的情況，所以是 > 4.5)
+  // 規則二：分立局 — od1 (熱門馬匹數) ≥ 5匹 (原規則為 >= 4，但 =4 是混亂局，故實為 > 4)
   // 意味著熱門或冷門出現了一定程度的分層現象。熱門相爭的數量較多(有時可達5-9匹)
   // ══════════════════════════════════════════════════════════════════════
-  if (od1 > 4.5) {
-    const isColdSplit = od2 >= 4
+  if (od1Count > 4) {
+    const isColdSplit = od2Count >= 4
     
     if (isColdSplit) {
-      // od1 > 4 且 od2 ≥ 4
+      // od1 > 4匹 且 od2 ≥ 4匹
       return {
         raceType: "分立局", raceTypeCode: "SPLIT",
         od1, od2, od3, od4,
@@ -347,13 +350,13 @@ function analyzeOddsStructure(
         qinFocus: "spread",
         topBanker: null,
         coldCandidates,
-        description: `分立局（瓦解）：首選（${od1}）與次選（${od2}）均 ≥ 4。意味著 od1 的分層現象被 od2 所瓦解，整體局面依然是混亂不清的。`,
+        description: `分立局（瓦解）：熱門馬（${od1Count}匹）與半冷馬（${od2Count}匹）均 ≥ 4匹。意味著 od1 的分層現象被 od2 所瓦解，整體局面依然是混亂不清的。`,
         tip: `od1 和 od2 並沒有賠率顯示的那樣有那麼大的差異，賽果有很大的機會可能會出現冷馬結果。`,
       }
     } else {
-      // od1 > 4 且 od2 < 4 (理論上不常發生，因為 od1 必定大於 od2，但防呆)
-      // 若 od2 < 3，則分層現象更加明顯
-      const isStrongSplit = od2 < 3
+      // od1 > 4匹 且 od2 < 4匹
+      // 若 od2 < 3匹，則分層現象更加明顯
+      const isStrongSplit = od2Count < 3
       return {
         raceType: "分立局", raceTypeCode: "SPLIT",
         od1, od2, od3, od4,
@@ -364,9 +367,9 @@ function analyzeOddsStructure(
         qinFocus: "od1_group",
         topBanker: String(topBanker),
         coldCandidates: [],
-        description: `分立局：首選賠率 ${od1}，熱門或冷門出現了一定程度的分層現象。熱門相爭數量較多（${od1Count}匹），賽果偏向較多熱門。`,
+        description: `分立局：熱門馬達 ${od1Count} 匹，熱門或冷門出現了一定程度的分層現象。熱門相爭數量較多，賽果偏向較多熱門。`,
         tip: isStrongSplit 
-          ? `次選賠率（${od2}）< 3，分層現象更加明顯。有很大的機率 Q 基本上在 od1 中出現。`
+          ? `半冷馬（${od2Count}匹）< 3匹，分層現象更加明顯。有很大的機率 Q 基本上在 od1 中出現。`
           : `熱門競爭多，注意熱門馬匹間的連贏(Q)組合。`,
       }
     }
