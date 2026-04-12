@@ -434,6 +434,60 @@ export const handler: Handler = async (event) => {
       }
     }
 
+    // ── /alerts ────────────────────────────────────────────────────────────
+    if (pathname === "/alerts") {
+      try {
+        const urlParams = new URLSearchParams(event.queryStringParameters as any)
+        const limit    = Math.min(Number(urlParams.get("limit") ?? 30), 100)
+        const severity = urlParams.get("severity") ?? undefined
+        const date     = urlParams.get("date")     ?? undefined
+
+        if (!process.env.DATABASE_URL) {
+          return json(500, { error: "DATABASE_URL not configured" })
+        }
+
+        const sql = neon(process.env.DATABASE_URL)
+        
+        let historyQuery
+        if (date && severity) {
+          historyQuery = sql`SELECT * FROM alerts WHERE date = ${date}::date AND severity = ${severity} ORDER BY detected_at DESC LIMIT ${limit}`
+        } else if (date) {
+          historyQuery = sql`SELECT * FROM alerts WHERE date = ${date}::date ORDER BY detected_at DESC LIMIT ${limit}`
+        } else if (severity) {
+          historyQuery = sql`SELECT * FROM alerts WHERE severity = ${severity} ORDER BY detected_at DESC LIMIT ${limit}`
+        } else {
+          historyQuery = sql`SELECT * FROM alerts ORDER BY detected_at DESC LIMIT ${limit}`
+        }
+
+        const statsQuery = sql`
+          SELECT 
+            COUNT(*) as total,
+            COUNT(*) FILTER (WHERE severity = 'CRITICAL') as critical,
+            COUNT(*) FILTER (WHERE severity = 'HIGH') as high,
+            COUNT(*) FILTER (WHERE severity = 'MEDIUM') as medium
+          FROM alerts 
+          WHERE date = CURRENT_DATE
+        `
+
+        const [history, statsResult] = await Promise.all([historyQuery, statsQuery])
+        
+        let stats = { critical: 0, high: 0, medium: 0, total: 0 }
+        if (statsResult && statsResult.length > 0) {
+          stats = {
+            total: Number(statsResult[0].total),
+            critical: Number(statsResult[0].critical),
+            high: Number(statsResult[0].high),
+            medium: Number(statsResult[0].medium)
+          }
+        }
+
+        return json(200, { history, stats })
+      } catch (e: any) {
+        console.error("/alerts error", e)
+        return json(500, { error: "Internal error", detail: e.message })
+      }
+    }
+
     // ── /predict/:venue/:raceNo ────────────────────────────────────────────
     const predictMatch = pathname.match(/^\/predict\/([^/]+)\/(\d+)/)
     if (predictMatch) {

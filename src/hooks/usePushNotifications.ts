@@ -23,7 +23,7 @@ export interface PushNotificationState {
   unsubscribe:  () => Promise<void>
 }
 
-// VAPID Public Key（從 .env.local 的 NEXT_PUBLIC_VAPID_PUBLIC_KEY 讀取）
+// VAPID Public Key（從 .env 讀取，並透過 Vite define 注入）
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -101,7 +101,7 @@ export function usePushNotifications(): PushNotificationState {
       // 3. 建立 Push 訂閱
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly:      true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as any,
       })
 
       // 4. 儲存到伺服器（Neon DB）
