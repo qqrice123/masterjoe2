@@ -444,7 +444,6 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#f953f7] mr-1"></span>位置Q QPL</span>
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#ef4444] rounded-full mr-1"></span>大戶落飛</span>
           <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1"></span>AI系統首選</span>
-          <span className="flex items-center"><span className="inline-block w-3 h-3 bg-[#f472b6] rounded-full mr-1"></span>正EV馬</span>
           <span className="flex items-center"><span className="text-[#fff005] font-bold mr-1">大熱</span>賽局四大熱門</span>
         </p>
 
@@ -508,10 +507,6 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
                 <div className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full bg-[#7dd3fc] border border-[#38bdf8] flex items-center justify-center text-[8px] font-bold text-[#0f1117]">1</span>
                   <span className="text-[10px] text-slate-300">AI 系統首選 (模型勝率最高)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-[#f472b6] border border-[#db2777] flex items-center justify-center text-[8px] font-bold text-[#0f1117]">8</span>
-                  <span className="text-[10px] text-slate-300">正EV馬 (價值被低估)，必作配腳</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full bg-red-500 border border-red-700 flex items-center justify-center text-[8px] font-bold text-white">3</span>
