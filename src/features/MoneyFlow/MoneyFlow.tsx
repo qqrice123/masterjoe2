@@ -276,7 +276,12 @@ const OddsTable = memo(function OddsTable({ predictions, totalWin }: { predictio
                     }`}>
                       {p.runnerNumber}
                     </span>
-                    <span className="text-slate-300 truncate max-w-[80px]">{p.runnerName}</span>
+                    <span className="text-slate-300 truncate max-w-[80px]">
+                      {p.runnerName}
+                      {(p as any).isStrongStar && (
+                        <span className="ml-1 text-yellow-400" title="強勢星星指標 (勝率換算<10 且 即時賠率<10)">★</span>
+                      )}
+                    </span>
                   </div>
                 </td>
                 <td className={`text-right py-2 px-2 font-mono font-bold ${

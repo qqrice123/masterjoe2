@@ -967,6 +967,10 @@ export const handler: Handler = async (event) => {
             const kelly = p.expectedValue / (winOddsNum - 1)
             p.kellyFraction = parseFloat((Math.max(0, kelly) * 100).toFixed(1))
           }
+          // 強勢星星指標 (Strong Star): 系統勝率換算賠率 < 10 且 即時賠率 < 10 (落在 od1 區域)
+          p.isStrongStar = p.modelOdds < 10 && winOddsNum < 10
+        } else {
+          p.isStrongStar = false
         }
 
         // ── Combat advice ──────────────────────────────────────────────
