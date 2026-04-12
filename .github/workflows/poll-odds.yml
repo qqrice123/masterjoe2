@@ -1,0 +1,16 @@
+name: Auto Poll Odds
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # 每一小時的每 5 分鐘執行一次 (UTC 時間)
+  workflow_dispatch: # 允許在 GitHub 網頁上手動點擊執行
+
+jobs:
+  trigger-netlify-function:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit Netlify poll-odds Endpoint
+        run: |
+          curl -X POST "https://masterjoe2.netlify.app/.netlify/functions/poll-odds" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "Content-Type: application/json"

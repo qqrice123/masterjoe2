@@ -7,7 +7,6 @@
  *
  */
 import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions"
-import { schedule } from "@netlify/functions"
 import { neon } from "@neondatabase/serverless"
 import { HorseRacingAPI, HKJCClient } from "hkjc-api"
 import { horseOddsQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
@@ -60,9 +59,17 @@ function getMtpBucket(mtp: number): number {
 
 // ---- 主 handler ----
 const pollOddsHandler: Handler = async (
-  _event: HandlerEvent,
+  event: HandlerEvent,
   _context: HandlerContext
 ) => {
+  // Authentication check for GitHub Actions Trigger
+  const authHeader = event.headers.authorization || ""
+  const expectedToken = `Bearer ${process.env.CRON_SECRET}`
+  
+  if (process.env.CRON_SECRET && authHeader !== expectedToken) {
+    return { statusCode: 401, body: "Unauthorized" }
+  }
+
   if (!process.env.DATABASE_URL) {
     console.error("[poll-odds] DATABASE_URL 未設定")
     return { statusCode: 500, body: "DATABASE_URL missing" }
@@ -256,5 +263,5 @@ const pollOddsHandler: Handler = async (
   }
 }
 
-// Ensure ONLY standard Netlify V1 schedule syntax is used to prevent compiler confusion
-export const handler = schedule("*/5 * * * *", pollOddsHandler)
+// 移除 Netlify schedule，改為標準 HTTP Handler 供 GitHub Actions 呼叫
+export const handler = pollOddsHandler
