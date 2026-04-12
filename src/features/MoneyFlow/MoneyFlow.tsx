@@ -135,10 +135,6 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({ prediction
       showMarker = true;
       markerColor = "#7dd3fc"; // Light blue for System Top Pick
       textColor = "#0f1117";
-    } else if (item.isEvPick) {
-      showMarker = true;
-      markerColor = "#f472b6"; // Pink for EV Pick
-      textColor = "#0f1117";
     }
     
     // Determine hot label
