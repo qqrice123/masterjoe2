@@ -256,4 +256,9 @@ const pollOddsHandler: Handler = async (
   }
 }
 
+// Support both older V1 schedule syntax and newer V2 config syntax
 export const handler = schedule("*/5 * * * *", pollOddsHandler)
+
+export const config = {
+  schedule: "*/5 * * * *"
+}
