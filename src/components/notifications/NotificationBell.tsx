@@ -318,7 +318,8 @@ export const NotificationBell = memo(function NotificationBell({
       {/* ── 下拉面板 ────────────────────────────────────────── */}
       {open && (
         <div className="
-          absolute right-0 top-11 w-80 z-50
+          absolute -right-2 sm:right-0 top-11 
+          w-[calc(100vw-1rem)] sm:w-80 max-w-[360px] z-50
           bg-[#0d1421] border border-slate-700/60
           rounded-2xl shadow-2xl overflow-hidden
           animate-in fade-in slide-in-from-top-2 duration-150

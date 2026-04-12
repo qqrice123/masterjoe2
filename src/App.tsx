@@ -112,11 +112,11 @@ export default function App() {
 
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 bg-[#0f1117]/95 backdrop-blur border-b border-slate-800">
-        <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center gap-3">
+        <div className="max-w-[1400px] mx-auto px-2 sm:px-4 h-14 flex items-center gap-1.5 sm:gap-3">
 
           {/* Logo */}
-          <div className="flex items-center gap-2 mr-2">
-            <svg viewBox="0 0 32 32" width="28" height="28" aria-label="馬靈靈">
+          <div className="flex items-center gap-1.5 sm:gap-2 mr-0 sm:mr-2 shrink-0">
+            <svg viewBox="0 0 32 32" className="w-6 h-6 sm:w-7 sm:h-7" aria-label="馬靈靈">
               <rect width="32" height="32" rx="7" fill="#3b82f6"/>
               <text x="16" y="22" fontSize="18" textAnchor="middle"
                 fill="white" fontFamily="sans-serif" fontWeight="bold">馬</text>
@@ -125,7 +125,7 @@ export default function App() {
           </div>
 
           {/* Meeting selector */}
-          <div className="relative">
+          <div className="relative shrink min-w-0">
             <select
               value={venueCode}
               onChange={e => {
@@ -134,11 +134,11 @@ export default function App() {
                 const m = meetings.find(m => m.venueCode === e.target.value)
                 if (m) setMaxRaces(m.totalRaces || 11)
               }}
-              className="appearance-none cursor-pointer bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg pl-3 pr-10 py-1.5 focus:outline-none focus:border-blue-500 hover:border-slate-500 transition-colors shadow-sm bg-no-repeat"
+              className="appearance-none cursor-pointer bg-slate-800/80 border border-slate-700 text-slate-200 text-xs sm:text-sm rounded-lg pl-2 pr-6 sm:pl-3 sm:pr-10 py-1.5 focus:outline-none focus:border-blue-500 hover:border-slate-500 transition-colors shadow-sm bg-no-repeat truncate w-full"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9' /%3E%3C/svg%3E")`,
-                backgroundPosition: "right 0.5rem center",
-                backgroundSize: "1.5em 1.5em"
+                backgroundPosition: "right 0.25rem center",
+                backgroundSize: "1.2em 1.2em"
               }}
             >
               {meetingsLoading && <option>載入中...</option>}
@@ -151,15 +151,15 @@ export default function App() {
           </div>
 
           {/* Race number selector */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <select
               value={raceNo}
               onChange={e => setRaceNo(Number(e.target.value))}
-              className="appearance-none cursor-pointer bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg pl-3 pr-10 py-1.5 focus:outline-none focus:border-blue-500 hover:border-slate-500 transition-colors shadow-sm bg-no-repeat"
+              className="appearance-none cursor-pointer bg-slate-800/80 border border-slate-700 text-slate-200 text-xs sm:text-sm rounded-lg pl-2 pr-6 sm:pl-3 sm:pr-10 py-1.5 focus:outline-none focus:border-blue-500 hover:border-slate-500 transition-colors shadow-sm bg-no-repeat"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9' /%3E%3C/svg%3E")`,
-                backgroundPosition: "right 0.5rem center",
-                backgroundSize: "1.5em 1.5em"
+                backgroundPosition: "right 0.25rem center",
+                backgroundSize: "1.2em 1.2em"
               }}
             >
               {Array.from({ length: maxRaces }, (_, i) => i + 1).map(n => (
@@ -170,7 +170,7 @@ export default function App() {
 
           {/* Race name (if loaded) */}
           {raceDetail && (
-            <span className="hidden md:block text-xs text-slate-400 truncate max-w-[200px]">
+            <span className="hidden md:block text-xs text-slate-400 truncate max-w-[200px] shrink-0">
               {raceDetail.raceName}
               {raceDetail.isPreRace && (
                 <span className="ml-2 text-amber-500">夜賠估算</span>
@@ -179,10 +179,12 @@ export default function App() {
           )}
 
           {/* Spacer */}
-          <div className="flex-1" />
+          <div className="flex-1 min-w-[4px]" />
 
           {/* Notification Bell */}
-          <NotificationBell onNavigateToRace={(r) => setRaceNo(r)} />
+          <div className="shrink-0 flex items-center justify-end">
+            <NotificationBell onNavigateToRace={(r) => setRaceNo(r)} />
+          </div>
 
           {/* Last updated */}
           {lastUpdated && (
