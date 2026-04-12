@@ -92,9 +92,15 @@ function OddsTag({ value, label, name }: { value: number; label: string; name?: 
 export function OddsStructureBanner({ oddsStructure, isPreRace }: Props) {
   if (!oddsStructure || oddsStructure.raceTypeCode === "UNKNOWN") {
     return (
-      <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900/60 border border-slate-700/50 text-slate-500 text-sm">
-        <span className="text-base">⏳</span>
-        {isPreRace ? "賠率未開盤 — 賽局結構分析將於開盤後顯示" : "賽駒資料不足，無法分析賽局結構"}
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-slate-900/60 border border-slate-700/50 text-slate-500 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-base">⏳</span>
+          {isPreRace ? "賠率未開盤 — 賽局結構分析將於開盤後顯示" : "賽駒資料不足，無法分析賽局結構"}
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-600 bg-slate-800/40 px-2 py-1 rounded-full whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          Live Auto-Sync
+        </div>
       </div>
     )
   }
@@ -102,9 +108,15 @@ export function OddsStructureBanner({ oddsStructure, isPreRace }: Props) {
   const cfg = CONFIG[oddsStructure.raceTypeCode]
 
   return (
-    <div className={`rounded-xl border p-4 space-y-3 ${cfg.bg} ${cfg.border}`}>
+    <div className={`relative rounded-xl border p-4 space-y-3 ${cfg.bg} ${cfg.border}`}>
+      {/* Live Indicator */}
+      <div className="absolute top-3 right-3 flex items-center gap-1.5 text-[10px] text-emerald-400/80 bg-emerald-950/40 border border-emerald-900/50 px-2 py-1 rounded-full">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        自動同步中
+      </div>
+
       {/* Header row */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 pr-20">
         {/* Race type badge */}
         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold ${cfg.badge}`}>
           <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
