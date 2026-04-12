@@ -84,6 +84,7 @@ export interface RunnerPrediction {
   estWinInvestment: number | null
   estQINInvestment: number | null
   estQPLInvestment: number | null
+  _qinRatio?: number // 混亂局判斷異常柱體比例用
   moneyAlert?: MoneyAlert
   isTheoretical: boolean
   combatAdvice?: string

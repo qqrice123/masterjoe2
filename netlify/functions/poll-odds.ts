@@ -1,13 +1,12 @@
 /**
  * poll-odds.ts
  * ============
- * Netlify Scheduled Function — 每 5 分鐘執行一次
+ * Netlify Function — 被 GitHub Actions 每 5 分鐘呼叫一次
  * 1. 用 hkjc-api 抓取全場現在賠率
  * 2. 寫入 Neon odds_snapshots 表（已容錯重複快照）
  *
  */
 import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions"
-import { schedule } from "@netlify/functions"
 import { neon } from "@neondatabase/serverless"
 import { HorseRacingAPI, HKJCClient } from "hkjc-api"
 import { horseOddsQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
@@ -60,9 +59,18 @@ function getMtpBucket(mtp: number): number {
 
 // ---- 主 handler ----
 const pollOddsHandler: Handler = async (
-  _event: HandlerEvent,
+  event: HandlerEvent,
   _context: HandlerContext
 ) => {
+  // 驗證內部呼叫用的 Secret Key (由 GitHub Actions 帶上)
+  const authHeader = event.headers.authorization || event.headers.Authorization
+  const expectedToken = `Bearer ${process.env.CRON_SECRET}`
+  
+  if (process.env.CRON_SECRET && authHeader !== expectedToken) {
+    console.error("[poll-odds] 未經授權的呼叫")
+    return { statusCode: 401, body: "Unauthorized" }
+  }
+
   if (!process.env.DATABASE_URL) {
     console.error("[poll-odds] DATABASE_URL 未設定")
     return { statusCode: 500, body: "DATABASE_URL missing" }
@@ -256,9 +264,5 @@ const pollOddsHandler: Handler = async (
   }
 }
 
-// Support both older V1 schedule syntax and newer V2 config syntax
-export const handler = schedule("*/5 * * * *", pollOddsHandler)
-
-export const config = {
-  schedule: "*/5 * * * *"
-}
+// 已經改由 GitHub Actions 定時觸發此 API 端點
+export const handler = pollOddsHandler
