@@ -1069,11 +1069,39 @@ export const handler: Handler = async (event) => {
       const oddsStructure = analyzeOddsStructure(predictions, isPreRace)
 
       const validPredictions = predictions.filter((p: any) => !String(p.runnerNumber).startsWith("R"))
-      const topPick = validPredictions.length > 0 ? validPredictions[0] : predictions[0]
+      let topPick = validPredictions.length > 0 ? validPredictions[0] : predictions[0]
+      let summaryTextBase = `AI 四維度分析（按模型賠率排名）：首選 #${topPick.runnerNumber} ${topPick.runnerName}（模型賠率 ${topPick.modelOdds}）。`
+
+      // 混亂局 AI系統首選 logic: 從半冷門馬(od2: 10~19.9)中，找異常柱體比例 (QIN / WIN 比例最高)
+      if (oddsStructure.raceTypeCode === "CHAOTIC") {
+        const od2Runners = validPredictions.filter((p: any) => {
+          if (p.winOdds === "—") return false
+          const odds = parseFloat(String(p.winOdds))
+          return odds >= 10 && odds < 20
+        })
+
+        if (od2Runners.length > 0) {
+          od2Runners.forEach((p: any) => {
+            const winInv = p.estWinInvestment || 0
+            const qinInv = p.estQINInvestment || 0
+            p._qinRatio = winInv > 0 ? qinInv / winInv : 0
+          })
+          
+          od2Runners.sort((a: any, b: any) => b._qinRatio - a._qinRatio)
+          
+          const bestOd2 = od2Runners[0]
+          // 確保有異常比例才替換首選 (例如比例 > 0.5)
+          if (bestOd2._qinRatio > 0) {
+            topPick = bestOd2
+            summaryTextBase = `【混亂局特選】AI 偵測到半冷馬異常資金：首選 #${topPick.runnerNumber} ${topPick.runnerName}（賠率 ${topPick.winOdds}，QIN 柱體異常比例 ${(topPick._qinRatio).toFixed(1)}x）。`
+          }
+        }
+      }
+
       const hasDarkHorse = validPredictions.some((p: any) => p.investmentLabel === "DARKHORSE")
       const highRiskRunners = validPredictions.filter((p: any) => p.investmentLabel === "RISK").length
 
-      const summaryText = `AI 四維度分析（按模型賠率排名）：首選 #${topPick.runnerNumber} ${topPick.runnerName}（模型賠率 ${topPick.modelOdds}）。${
+      const summaryText = `${summaryTextBase}${
         hasDarkHorse ? "本場存在潛在黑馬，" : ""
       }${highRiskRunners > 0 ? `有 ${highRiskRunners} 匹高風險賽駒需警惕。` : "全場狀態相對穩定。"}`
 
