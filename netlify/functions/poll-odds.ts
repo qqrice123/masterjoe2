@@ -213,13 +213,12 @@ const pollOddsHandler: Handler = async (
           // 如果有新的警報，觸發 push-send
           if (newAlerts.length > 0 && process.env.CRON_SECRET) {
             try {
-              const url = `https://${process.env.SITE_NAME || "masterjoeracing.netlify.app"}/.netlify/functions/api/push-send`
-              // 在本地開發時，若有設定 URL，可以直接呼叫
-              const localUrl = "http://localhost:8888/.netlify/functions/api/push-send"
+              const baseUrl = process.env.URL || (process.env.SITE_NAME ? `https://${process.env.SITE_NAME}.netlify.app` : "http://localhost:8888")
+              const url = `${baseUrl}/.netlify/functions/api/push-send`
               
               const highestAlert = newAlerts.sort((a, b) => (b.dropPct || 0) - (a.dropPct || 0))[0]
               
-              await fetch(process.env.NETLIFY_LOCAL ? localUrl : url, {
+              await fetch(url, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",

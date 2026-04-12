@@ -404,7 +404,10 @@ export const handler: Handler = async (event) => {
     const method = event.httpMethod || "GET"
     console.log("API request", { method, rawPath, pathname })
 
-    if (method !== "GET") return json(405, { error: "Method not allowed" })
+    // Allow POST for push-subscribe and push-send
+    if (method !== "GET" && method !== "POST" && method !== "DELETE") {
+      return json(405, { error: "Method not allowed" })
+    }
 
     // ── /meetings ──────────────────────────────────────────────────────────
     if (pathname === "/meetings") {
@@ -1107,6 +1110,96 @@ export const handler: Handler = async (event) => {
       }
 
       return json(200, raceDetail)
+    }
+
+    // ── /push-subscribe ────────────────────────────────────────────────────
+    if (pathname === "/push-subscribe") {
+      if (method === "POST") {
+        if (!process.env.DATABASE_URL) return json(500, { error: "DATABASE_URL not configured" })
+        try {
+          const subscription = JSON.parse(event.body || "{}")
+          if (!subscription.endpoint) return json(400, { error: "Invalid subscription: missing endpoint" })
+          const sql = neon(process.env.DATABASE_URL)
+          await sql`
+            INSERT INTO push_subscriptions (endpoint, auth, p256dh, created_at)
+            VALUES (${subscription.endpoint}, ${subscription.keys?.auth || null}, ${subscription.keys?.p256dh || null}, NOW())
+            ON CONFLICT (endpoint) DO UPDATE SET auth = EXCLUDED.auth, p256dh = EXCLUDED.p256dh, updated_at = NOW()
+          `
+          return json(201, { success: true })
+        } catch (e: any) {
+          return json(500, { error: "Failed to save subscription", detail: e.message })
+        }
+      } else if (method === "DELETE") {
+        if (!process.env.DATABASE_URL) return json(500, { error: "DATABASE_URL not configured" })
+        try {
+          const { endpoint } = JSON.parse(event.body || "{}")
+          if (!endpoint) return json(400, { error: "Missing endpoint" })
+          const sql = neon(process.env.DATABASE_URL)
+          await sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`
+          return json(200, { success: true })
+        } catch (e: any) {
+          return json(500, { error: "Failed to delete subscription", detail: e.message })
+        }
+      }
+      return json(405, { error: "Method not allowed" })
+    }
+
+    // ── /push-send ─────────────────────────────────────────────────────────
+    if (pathname === "/push-send" && method === "POST") {
+      const authHeader = event.headers.authorization
+      const expectedToken = `Bearer ${process.env.CRON_SECRET}`
+      
+      if (!process.env.CRON_SECRET || authHeader !== expectedToken) {
+        return json(401, { error: "Unauthorized" })
+      }
+      if (!process.env.DATABASE_URL) return json(500, { error: "DATABASE_URL not configured" })
+
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ""
+      const privateKey = process.env.VAPID_PRIVATE_KEY || ""
+      const subject = process.env.VAPID_SUBJECT || "mailto:admin@masterjoe.app"
+      if (!publicKey || !privateKey) return json(500, { error: "VAPID keys not configured" })
+
+      try {
+        const webpush = (await import("web-push")).default
+        webpush.setVapidDetails(subject, publicKey, privateKey)
+
+        const payload = JSON.parse(event.body || "{}")
+        const notificationPayload = JSON.stringify({
+          title: payload.title || "馬靈靈 新警報",
+          body: payload.body || "有新的異常資金警報！",
+          url: payload.url || "/",
+          icon: payload.icon || "/icons/icon-192x192.png",
+          tag: payload.tag || "alert",
+          vibrate: payload.vibrate || [200, 100, 200]
+        })
+
+        const sql = neon(process.env.DATABASE_URL)
+        const subscriptions = await sql`SELECT * FROM push_subscriptions`
+        
+        if (subscriptions.length === 0) return json(200, { success: true, message: "No active subscriptions" })
+
+        const sendPromises = subscriptions.map(async (sub) => {
+          try {
+            await webpush.sendNotification({ endpoint: sub.endpoint, keys: { auth: sub.auth, p256dh: sub.p256dh } }, notificationPayload)
+            return { success: true, endpoint: sub.endpoint }
+          } catch (err: any) {
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              await sql`DELETE FROM push_subscriptions WHERE endpoint = ${sub.endpoint}`
+            }
+            return { success: false, endpoint: sub.endpoint, error: err.message }
+          }
+        })
+
+        const results = await Promise.all(sendPromises)
+        return json(200, { 
+          success: true, 
+          sent: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length,
+          results 
+        })
+      } catch (e: any) {
+        return json(500, { error: "Internal server error", detail: e.message })
+      }
     }
 
     return json(404, { error: "Not found" })
