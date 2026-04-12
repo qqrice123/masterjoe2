@@ -1039,15 +1039,20 @@ export const handler: Handler = async (event) => {
 
       const validPredictions = predictions.filter((p: any) => !String(p.runnerNumber).startsWith("R"))
       
-      // Determine Top 3 for Blue Star Logic
-      const top3Numbers = validPredictions.slice(0, 3).map((p: any) => String(p.runnerNumber))
+      // Determine Top 4 (including ties) for Blue Star Logic
+      // 1. 取得所有不重複的系統勝率值並由高到低排序
+      const uniqueWinProbs = Array.from(new Set(validPredictions.map((p: any) => p.winProbModel))).sort((a: any, b: any) => b - a)
+      // 2. 取前 4 高的勝率門檻
+      const top4ProbThreshold = uniqueWinProbs.length >= 4 ? uniqueWinProbs[3] : uniqueWinProbs[uniqueWinProbs.length - 1]
+      // 3. 將勝率 >= 該門檻的馬匹視為 Top 4 (包含同分)
+      const top4Numbers = validPredictions.filter((p: any) => p.winProbModel >= top4ProbThreshold).map((p: any) => String(p.runnerNumber))
       
       predictions.forEach((p: any) => {
         if (oddsStructure.raceTypeCode === "CHAOTIC") {
           const winOddsNum = p.winOdds !== "—" ? parseFloat(String(p.winOdds)) : 0
-          const isTop3 = top3Numbers.includes(String(p.runnerNumber))
+          const isTop4 = top4Numbers.includes(String(p.runnerNumber))
           const isOd2 = winOddsNum >= 10 && winOddsNum < 20
-          p.isBlueStar = isTop3 && isOd2
+          p.isBlueStar = isTop4 && isOd2
         } else {
           p.isBlueStar = false
         }

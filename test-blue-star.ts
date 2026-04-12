@@ -15,15 +15,21 @@ async function run() {
       console.log(`No runner 10 in Race ${race}`);
       return;
     }
-    const valid = data.predictions.filter((p: any) => !String(p.runnerNumber).startsWith("R"));
-    const top3 = valid.slice(0,3).map((p: any) => String(p.runnerNumber));
+    
+    // Log what the server actually calculated for top 4
+    const validPredictions = data.predictions.filter((p: any) => !String(p.runnerNumber).startsWith("R"));
+    const uniqueWinProbs = Array.from(new Set(validPredictions.map((p: any) => p.winProbModel))).sort((a: any, b: any) => b - a);
+    const top4ProbThreshold = uniqueWinProbs.length >= 4 ? uniqueWinProbs[3] : uniqueWinProbs[uniqueWinProbs.length - 1];
+    const top4Numbers = validPredictions.filter((p: any) => p.winProbModel >= top4ProbThreshold).map((p: any) => String(p.runnerNumber));
+
     console.log(`Prediction #10 in Race ${race}:`, {
       runnerName: p10.runnerName,
       winOdds: p10.winOdds,
       modelOdds: p10.modelOdds,
       winProbModel: p10.winProbModel,
-      top3,
-      isTop3: top3.includes("10"),
+      top4Threshold: top4ProbThreshold,
+      top4Numbers,
+      isTop4: top4Numbers.includes("10"),
       isBlueStar: p10.isBlueStar,
       raceTypeCode: data.oddsStructure?.raceTypeCode
     });
