@@ -10,6 +10,9 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+[functions."poll-odds"]
+  schedule = "*/5 * * * *"
+
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
 
