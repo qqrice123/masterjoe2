@@ -25,12 +25,22 @@ function toISODate(hkjcDate: string): string {
 function minutesToPost(postTime: string | undefined): number {
   if (!postTime) return -999
   try {
-    const [h, m] = postTime.split(":").map(Number)
-    if (isNaN(h) || isNaN(m)) return -999
-    const now = new Date()
-    const postMs = new Date(now)
-    postMs.setHours(h, m, 0, 0)
-    const result = Math.round((postMs.getTime() - now.getTime()) / 60000)
+    let postMs: number
+    // 若為 HH:mm 格式（例如 "12:30"）
+    if (/^\d{1,2}:\d{2}$/.test(postTime)) {
+      const [h, m] = postTime.split(":").map(Number)
+      const d = new Date()
+      d.setHours(h, m, 0, 0)
+      postMs = d.getTime()
+    } else {
+      // 假設為完整 ISO 時間字串
+      postMs = new Date(postTime).getTime()
+    }
+    
+    if (isNaN(postMs)) return -999
+    
+    const now = new Date().getTime()
+    const result = Math.round((postMs - now) / 60000)
     return isNaN(result) ? -999 : result
   } catch {
     return -999
