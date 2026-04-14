@@ -156,7 +156,7 @@ export function RaceView() {
                     <td className="px-3 py-2.5 relative">
                       <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5">
                         {isSystemTopPick && <span className="w-1.5 h-1.5 rounded-full bg-[#7dd3fc]" title="聰明錢(QIN/QPL異常)" />}
-                        {isAiTopPick && <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" title="AI綜合首選" />}
+                        {isAiTopPick && <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" title="AI 系統建議" />}
                       </div>
                       <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-bold ${(isSystemTopPick || isAiTopPick) ? "ml-3" : ""}`}>{p.runnerNumber}</span>
                     </td>

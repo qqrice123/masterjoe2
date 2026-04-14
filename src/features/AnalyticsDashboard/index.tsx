@@ -261,7 +261,7 @@ function EVMatrixTable({
                 <td className="px-3 py-3 font-mono font-bold text-slate-300 whitespace-nowrap relative">
                   <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5">
                     {isSystemTopPick && <span className="w-1.5 h-1.5 rounded-full bg-[#7dd3fc]" title="聰明錢(QIN/QPL異常)" />}
-                    {isAiTopPick && <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" title="AI綜合首選" />}
+                    {isAiTopPick && <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" title="AI 系統建議" />}
                   </div>
                   <span className={(isSystemTopPick || isAiTopPick) ? "ml-3" : ""}>{p.runnerNumber}</span>
                   {p.draw > 0 && (

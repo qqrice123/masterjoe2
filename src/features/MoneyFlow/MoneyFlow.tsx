@@ -550,7 +550,7 @@ export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | n
             <span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1" />聰明錢(QIN/QPL異常)
           </span>
           <span className="flex items-center">
-            <span className="inline-block w-3 h-3 bg-[#22c55e] rounded-full mr-1" />AI綜合首選
+            <span className="inline-block w-3 h-3 bg-[#22c55e] rounded-full mr-1" />AI 系統建議
           </span>
           <span className="flex items-center">
             <span className="text-emerald-400 font-bold mr-1">✨</span>WeightRD命中(3–9x)
