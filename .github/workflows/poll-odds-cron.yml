@@ -13,6 +13,6 @@ jobs:
     steps:
       - name: Call Netlify Function
         run: |
-          curl -X POST "https://masterjoe2.netlify.app/.netlify/functions/poll-odds" \
+          curl -X POST "https://masterjoe2.netlify.app/.netlify/functions/poll-odds?force=true" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           --fail --silent --show-error
