@@ -190,10 +190,14 @@ function EmptyAlertList() {
 interface NotificationBellProps {
   /** 點擊警報後跳轉到哪個場次（由父組件處理） */
   onNavigateToRace?: (raceNo: number) => void
+  date?: string
+  venueCode?: string
 }
 
 export const NotificationBell = memo(function NotificationBell({
   onNavigateToRace,
+  date,
+  venueCode,
 }: NotificationBellProps) {
   const push         = usePushNotifications()
   const [open,       setOpen]       = useState(false)
@@ -208,7 +212,12 @@ export const NotificationBell = memo(function NotificationBell({
   const fetchAlerts = useCallback(async () => {
     try {
       setLoadingList(true)
-      const res  = await fetch("/api/alerts?limit=30")
+      const url = new URL("/api/alerts", window.location.origin)
+      url.searchParams.set("limit", "30")
+      if (date) url.searchParams.set("date", date)
+      // 如果要精確到場地，可以加上 venue={venueCode}，不過一般同日只有一場賽事
+
+      const res  = await fetch(url.toString())
       if (!res.ok) return
       const data = await res.json() as { history: AlertRecord[] }
       setAlerts(data.history ?? [])
@@ -223,7 +232,7 @@ export const NotificationBell = memo(function NotificationBell({
     } finally {
       setLoadingList(false)
     }
-  }, [lastReadAt])
+  }, [date, lastReadAt])
 
   // ── 定時輪詢（30 秒）──────────────────────────────────────────
   // 即使 tab 打開，也保持同步

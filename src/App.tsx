@@ -183,7 +183,11 @@ export default function App() {
 
           {/* Notification Bell */}
           <div className="shrink-0 flex items-center justify-end">
-            <NotificationBell onNavigateToRace={(r) => setRaceNo(r)} />
+            <NotificationBell 
+              onNavigateToRace={(r) => setRaceNo(r)} 
+              date={meetings.find(m => m.venueCode === venueCode)?.date}
+              venueCode={venueCode}
+            />
           </div>
 
           {/* Last updated */}

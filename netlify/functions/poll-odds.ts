@@ -250,6 +250,15 @@ const pollOddsHandler: Handler = async (
     }
 
     console.log(`[poll-odds] 完成: 寫入 ${totalInserted} 筆賠率快照`)
+    
+    // 清除舊資料 (保留今日與昨日，避免跨夜賽事被刪除)
+    try {
+      await sql`DELETE FROM alerts WHERE date < CURRENT_DATE - INTERVAL '1 day'`
+      await sql`DELETE FROM odds_snapshots WHERE date < CURRENT_DATE - INTERVAL '2 days'`
+    } catch (cleanErr) {
+      console.error("[poll-odds] 清理舊資料失敗", cleanErr)
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({
