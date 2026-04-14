@@ -194,16 +194,13 @@ function EVMatrixTable({
   predictions,
   isPreRace,
   oddsStructure,
+  aiTopPick,
 }: {
   predictions:    Prediction[]
   isPreRace:      boolean
   oddsStructure?: OddsStructure
+  aiTopPick?:     string | number
 }) {
-  const aiTopPick = useMemo(
-    () => aiEngine.getTopPick(predictions, oddsStructure),
-    [predictions, oddsStructure]
-  )
-
   const systemTopPick = useMemo(() => {
     let bestRunner: string | number | null = null
     let maxRatio = 0
@@ -436,6 +433,7 @@ export function AnalyticsDashboard({ raceDetail, isLoading }: Props) {
           predictions={predictions}
           isPreRace={isPreRace}
           oddsStructure={oddsStructure}
+          aiTopPick={raceDetail?.topPick?.runnerNumber}
         />
       </div>
     </div>

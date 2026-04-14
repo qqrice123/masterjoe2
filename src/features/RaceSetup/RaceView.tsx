@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query"
 import { useRoute } from "wouter"
 import { useMemo } from "react"
 import { api, RaceDetail, Prediction } from "../../services/api"
-import { aiEngine }                     from "../../services/aiLearning"
 import { getWeightRDTooltip }           from "../../services/weightRD.utils"
 import { MoneyFlowChart }    from "../MoneyFlow/MoneyFlowChart"
 import { PaceDrawMap }       from "../AnalyticsDashboard/PaceDrawMap"
@@ -75,10 +74,7 @@ export function RaceView() {
 
   const preds = race?.predictions ?? []
 
-  const aiTopPick = useMemo(
-    () => aiEngine.getTopPick(preds, race?.pools ? { winPool: race.pools.WIN, qinPool: race.pools.QIN, qplPool: race.pools.QPL } as any : undefined),
-    [preds, race]
-  )
+  const aiTopPick = race?.topPick?.runnerNumber
 
   const systemTopPick = useMemo(() => {
     let bestRunner: string | number | null = null

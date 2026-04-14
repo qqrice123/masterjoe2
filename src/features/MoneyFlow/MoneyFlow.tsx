@@ -10,7 +10,6 @@ import {
 } from "recharts"
 import type { XAxisProps } from "recharts"
 import { OddsStructureBanner } from "../AnalyticsDashboard/OddsStructureBanner"
-import { aiEngine }             from "../../services/aiLearning"
 import { api, OddsStructure, Prediction, RaceDetail } from "../../services/api"
 import { AlertFeed }            from "./AlertFeed"
 import { getWeightRDTooltip }   from "../../services/weightRD.utils"
@@ -110,15 +109,12 @@ function PoolBar({
 const InvestmentRankingChart = memo(function InvestmentRankingChart({
   predictions,
   oddsStructure,
+  aiTopPick,
 }: {
   predictions:   Prediction[]
   oddsStructure?: OddsStructure
+  aiTopPick?: string | number
 }) {
-  const aiTopPick = useMemo(
-    () => aiEngine.getTopPick(predictions, oddsStructure),
-    [predictions, oddsStructure]
-  )
-
   const systemTopPick = useMemo(() => {
     let bestRunner: string | number | null = null
     let maxRatio = 0
@@ -531,7 +527,7 @@ export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | n
           </div>
         )}
 
-        <InvestmentRankingChart predictions={predictions} oddsStructure={oddsStruct} />
+        <InvestmentRankingChart predictions={predictions} oddsStructure={oddsStruct} aiTopPick={raceDetail?.topPick?.runnerNumber} />
 
         <p className="text-xs text-slate-600 mt-4 flex gap-4 flex-wrap">
           <span className="flex items-center">
