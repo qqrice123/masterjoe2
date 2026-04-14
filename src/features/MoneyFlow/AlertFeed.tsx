@@ -23,8 +23,8 @@ const LARGE_BET_DROP_THRESHOLD = 20
 /** 觸發「資金撤離」警報的賠率升幅門檻（15%） */
 const DRIFT_RISE_THRESHOLD = 15
 
-/** QIN/QPL 聚合資金超過 WIN 的倍數門檻，觸發隱注警報 */
-const QIN_OVERFLOW_RATIO = 1.2
+/** QIN/QPL 聚合資金超過 WIN 的倍數門檻，觸發隱注警報 (因0.825修正下調至1.0) */
+const QIN_OVERFLOW_RATIO = 1.0
 
 /** 最低 WIN 投資門檻（元），過濾雜訊小馬 */
 const MIN_WIN_INVESTMENT = 10_000

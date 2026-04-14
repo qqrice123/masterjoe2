@@ -24,7 +24,7 @@ const CHART_COLORS = {
 
 const POOL_DEDUCTION           = 0.825       // HKJC WIN 彩池保留率
 const MIN_INVESTMENT_THRESHOLD = 10_000      // QIN 溢出最低投資門檻（港元）
-const QIN_OVERFLOW_RATIO       = 1.2         // QIN:WIN 比率警報門檻
+const QIN_OVERFLOW_RATIO       = 1.0         // QIN:WIN 比率警報門檻 (由於 QIN/WIN 都套用了0.825，將門檻從 1.2 降至 1.0 以維持相同敏感度)
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 // Use types from api.ts
@@ -374,7 +374,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
         const maxRatio = Math.max(qinWinRatio, qplWinRatio);
         return { runnerNumber: p.runnerNumber, winOdds: p.winOdds, win, qin, qpl, qinWinRatio, qplWinRatio, maxRatio };
       })
-      .filter(d => d.maxRatio > 1.2) // QIN or QPL > 1.2x WIN
+      .filter(d => d.maxRatio >= QIN_OVERFLOW_RATIO)
       .sort((a, b) => b.maxRatio - a.maxRatio)
       .slice(0, 2);
   }, [predictions]);
