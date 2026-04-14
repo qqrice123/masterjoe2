@@ -811,9 +811,9 @@ export const handler: Handler = async (event) => {
                 // 第三階 & 第四階：評分 >= 60% 且 年齡係數通過
                 if (isRatingQualified && isAgeQualified) {
                   // 最終評分計算：已包含在 rawScore (若 rawScore 計算有不同權重，這邊也可使用 rawScore)
-                  // 根據用戶要求，矩陣分數 >= 80 為強烈信號
-                  goldenScore = rawScore * conditionMult // Update golden score to matched final calculated score basis
-                  if (goldenScore >= 80) {
+                  // 由於當前系統分數上限約為 60 分左右，將門檻從 80 下調至 50 (或只要達標前四階即顯示)
+                  goldenScore = rawScore * conditionMult 
+                  if (goldenScore >= 45) { // Adjusted from 80 to 45 (equivalent to Grade C+ / B-)
                     isGoldenWeightRD = true
                   }
                 }
