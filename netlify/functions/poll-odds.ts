@@ -103,6 +103,7 @@ const pollOddsHandler: Handler = async (
 
         const mtp = minutesToPost(race.postTime)
         if (isNaN(mtp)) continue
+        // 為了確保可以抓取所有賽事（即使是未來或剛結束的），當 forceMtp 為 true 時放寬限制
         if (!forceMtp && (mtp < -10 || mtp > 120)) continue
 
         const mtpBucket = getMtpBucket(mtp)
@@ -192,13 +193,15 @@ const pollOddsHandler: Handler = async (
           }
         }
         
-        // 取得前一次快照 (用於計算跌幅)
+        // 取得前一次快照 (用於計算跌幅與估算注入金額)
+        // 不再限制 mtp_bucket 必須大於當前，而是直接抓取該馬匹「最新的一筆」快照紀錄
         let prevOddsMap: Record<string, number> = {}
         try {
           const prevSnapshots = await sql`
-            SELECT runner_number, odds FROM odds_snapshots 
-            WHERE date = ${raceDate} AND venue = ${venue} AND race_no = ${raceNo} AND mtp_bucket > ${mtpBucket}
-            ORDER BY mtp_bucket ASC
+            SELECT DISTINCT ON (runner_number) runner_number, odds 
+            FROM odds_snapshots 
+            WHERE date = ${raceDate} AND venue = ${venue} AND race_no = ${raceNo}
+            ORDER BY runner_number, snaptime DESC
           `
           prevSnapshots.forEach(row => {
             if (!prevOddsMap[row.runner_number]) {
@@ -220,7 +223,9 @@ const pollOddsHandler: Handler = async (
         ]
 
         try {
-          const queries = allOddsNodes.map((node) => {
+          const queries: any[] = []
+          
+          allOddsNodes.forEach((node) => {
             const paddedNo = String(node.combString).split(",").map(x => x.padStart(2, "0")).join(",")
             const isWin = node.type === "WIN"
             const horseName = isWin ? (runnersMap[paddedNo] || runnersMap[node.combString] || "") : ""
@@ -284,29 +289,23 @@ const pollOddsHandler: Handler = async (
               })
 
               // 記錄寫入 Alert 的 Query
-              return sql`
-                WITH snapshot_insert AS (
-                  INSERT INTO odds_snapshots (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket, snaptime)
-                  VALUES (${raceDate}, ${venue}, ${raceNo}, ${paddedNo}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket}, ${snaptime})
-                  ON CONFLICT (date, venue, race_no, runner_number, mtp_bucket) 
-                  DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post, snaptime = EXCLUDED.snaptime
-                )
+              queries.push(sql`
                 INSERT INTO alerts (alert_id, venue, race_no, race_name, runner_number, runner_name, alert_type, severity, prev_odds, current_odds, drop_pct, date)
                 VALUES (${alertId}, ${venue}, ${raceNo}, ${race.raceName_ch || race.raceName_en || ""}, ${paddedNo}, ${horseName}, ${alertType}, ${severity}, ${prevOdds}, ${odds}, ${isSM ? maxSmartMoneyRatio : dropPct}, ${raceDate})
                 ON CONFLICT (alert_id) DO NOTHING
-              `
+              `)
             }
 
             // 一般的賠率快照更新 (WIN, QIN, QPL 都存入 odds_snapshots 以便下次比對)
-            return sql`
+            queries.push(sql`
               INSERT INTO odds_snapshots
                 (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket, snaptime)
               VALUES
                 (${raceDate}, ${venue}, ${raceNo}, ${paddedNo}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket}, ${snaptime})
               ON CONFLICT (date, venue, race_no, runner_number, mtp_bucket) 
               DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post, snaptime = EXCLUDED.snaptime
-            `
-          }).filter(Boolean) as any[]
+            `)
+          })
 
           // 處理 large_bets 大戶寫入
           if (largeBetsTransactions.length > 0) {
