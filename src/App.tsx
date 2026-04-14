@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { AnalyticsDashboard } from "@/features/AnalyticsDashboard"
 import { MoneyFlow } from "@/features/MoneyFlow/MoneyFlow"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
+import { aiEngine } from "./services/aiLearning"
 import { BarChart2, Activity, Lightbulb, History, Moon, Sun, RefreshCw, ChevronDown } from "lucide-react"
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -333,18 +334,29 @@ export default function App() {
                   🤖 AI 系統建議
                 </h3>
                 <p className="text-sm text-slate-300 leading-relaxed">{raceDetail.aiSummary}</p>
-                {raceDetail.topPick && (
-                  <div className="mt-4 pt-4 border-t border-slate-800 flex items-center gap-3">
-                    <span className="text-xs text-slate-500">首選：</span>
-                    <span className="text-blue-400 font-bold text-lg">
-                      #{raceDetail.topPick.runnerNumber}
-                    </span>
-                    <span className="text-slate-300">{raceDetail.topPick.runnerName}</span>
-                    <span className="text-xs text-slate-500 ml-auto">
-                      模型賠率 {raceDetail.topPick.modelOdds}
-                    </span>
-                  </div>
-                )}
+                <div className="mt-4 pt-4 border-t border-slate-800 flex items-center gap-3">
+                  <span className="text-xs text-slate-500">首選：</span>
+                  <span className="text-blue-400 font-bold text-lg">
+                    #{
+                      // 優先使用 AI Learning Engine 計算的首選，退回使用 API 返回的 topPick
+                      (() => {
+                        const enginePick = aiEngine.getTopPick(raceDetail.predictions, raceDetail.oddsStructure);
+                        const pickNumber = enginePick ?? raceDetail.topPick?.runnerNumber;
+                        return pickNumber;
+                      })()
+                    }
+                  </span>
+                  <span className="text-slate-300">
+                    {
+                      (() => {
+                        const enginePick = aiEngine.getTopPick(raceDetail.predictions, raceDetail.oddsStructure);
+                        const pickNumber = enginePick ?? raceDetail.topPick?.runnerNumber;
+                        const horseName = raceDetail.predictions.find(p => String(p.runnerNumber) === String(pickNumber))?.runnerName;
+                        return horseName ?? raceDetail.topPick?.runnerName;
+                      })()
+                    }
+                  </span>
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-center py-20 text-slate-600 text-sm">

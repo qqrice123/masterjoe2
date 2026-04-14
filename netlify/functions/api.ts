@@ -1290,8 +1290,10 @@ export const handler: Handler = async (event) => {
           console.log(`[CHAOTIC] isPreRace=${isPreRace} threshold=${CHAOTIC_QIN_THRESHOLD} bestOd2=#${bestOd2.runnerNumber} ratio=${bestRatio.toFixed(2)}`)
 
           if (bestRatio >= CHAOTIC_QIN_THRESHOLD) {
-            topPick = bestOd2
-            summaryTextBase = `【混亂局特選】AI 偵測到半冷馬異常資金：首選 #${topPick.runnerNumber} ${topPick.runnerName}（賠率 ${topPick.winOdds}，QIN 柱體異常比例 ${bestRatio.toFixed(1)}x）。`
+            // FIX: 這裡的 topPick 只用於 summary 文字顯示，但不應該覆蓋預設的 topPick
+            // 因為現在的 topPick 會在前端交由 AILearningEngine 決定
+            const chaoticTopPick = bestOd2
+            summaryTextBase = `【混亂局特選】AI 偵測到半冷馬異常資金：首選 #${chaoticTopPick.runnerNumber} ${chaoticTopPick.runnerName}（賠率 ${chaoticTopPick.winOdds}，QIN 柱體異常比例 ${bestRatio.toFixed(1)}x）。`
           } else {
             // 信號不足，維持模型首選但提示賽局類型
             summaryTextBase = `【混亂局】半冷馬資金信號不足（最高比例 ${bestRatio.toFixed(1)}x，未達門檻 ${CHAOTIC_QIN_THRESHOLD}x）。` + summaryTextBase
