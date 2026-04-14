@@ -111,10 +111,15 @@ function getConditionMult(last3Form: string): number {
 
 function getDynamicWeights(distance: number, raceClass: string) {
   let wStat = 0.35
-  let wBurden = 0.25
+  let wBurden = 0.35
   let wRating = 0.15
   let wAge = 0.1
-  let wTime = 0.15
+  let wTime = 0.05
+
+  if (distance > 2000) {
+    wBurden = 0.30
+    wRating = 0.25
+  }
 
   const cls = raceClass.toUpperCase()
   const isHighClass =
@@ -137,22 +142,13 @@ function getDynamicWeights(distance: number, raceClass: string) {
     cls === "B" ||
     cls === "C"
 
-  if (distance <= 1200) {
-    wBurden = 0.2
-    wTime = 0.2
-    wRating = 0.15
-  } else if (distance >= 2000) {
-    wStat = 0.35
-    wRating = 0.2
-    wTime = 0.05
-  }
-
   if (isHighClass) {
     wRating = 0.25
     wStat = 0.3
   } else if (isLowClass) {
-    wBurden = 0.2
+    wBurden = 0.4
     wAge = 0.15
+    wStat = 0.25
   }
 
   const total = wStat + wBurden + wRating + wAge + wTime
@@ -675,7 +671,12 @@ export const handler: Handler = async (event) => {
           const statScore = statWinRate / 100
 
           const weightRD = (weight / horseWeight) * distance
-          const burdenScore = Math.max(0, (benchmark - weightRD) / benchmark)
+          // 第三階：綜合評分驗證 - Check rating limit
+          const isRatingQualified = currentRating >= (classLimit * 0.6)
+          
+          // 負擔分數公式更新: max(0, (200 - 193.5) / 200) -> 這是偏差百分比
+          const weightRDBias = (benchmark - weightRD) / benchmark
+          let burdenScore = Math.max(0, weightRDBias)
 
           let ageBonus = 1.0
           let ageStage: "risingstar" | "primewarrior" | "veteran" | "unknown" = "veteran"
@@ -693,6 +694,9 @@ export const handler: Handler = async (event) => {
             ageStage = "veteran"
             ageStageLabel = "沙場老將"
           }
+
+          // 第四階：年齡加成過濾 - 2-3歲需要看近況
+          const isAgeQualified = ageBonus >= 0.9 || (ageBonus === 0.8 && getConditionMult(last3Form) > 1.0)
 
           let c = 0.055
           if (distance >= 2200) c = 0.22
@@ -772,6 +776,29 @@ export const handler: Handler = async (event) => {
 
           const weightRatio = (weight / horseWeight) * 100
           const weightD = weight * distance
+          
+          // ── 五階篩選：WeightRD × 賠率 ──────────────────────────────────────
+          let isGoldenWeightRD = false
+          let goldenScore = 0
+          
+          if (hasOdds && displayOdds !== "—") {
+            const oddsVal = parseFloat(String(displayOdds))
+            // 第一階：賠率初篩（3-9 倍）
+            if (oddsVal >= 3 && oddsVal <= 9) {
+              // 第二階：WeightRD < 基準 × 0.90 (偏差 >= 10%)
+              if (weightRDBias >= 0.10) {
+                // 第三階 & 第四階：評分 >= 60% 且 年齡係數通過
+                if (isRatingQualified && isAgeQualified) {
+                  // 最終評分計算：已包含在 rawScore (若 rawScore 計算有不同權重，這邊也可使用 rawScore)
+                  // 根據用戶要求，矩陣分數 >= 80 為強烈信號
+                  goldenScore = rawScore
+                  if (goldenScore >= 80) {
+                    isGoldenWeightRD = true
+                  }
+                }
+              }
+            }
+          }
 
           let displayRunnerNumber: string | number = parseInt(r.no)
           if (
@@ -868,6 +895,8 @@ export const handler: Handler = async (event) => {
             weightD,
             weightRatio: parseFloat(weightRatio.toFixed(2)),
             weightRD: parseFloat(weightRD.toFixed(2)),
+            isGoldenWeightRD, // <--- Add to response
+            goldenScore,      // <--- Add to response
             timeAdvantage: parseFloat(timeAdvantage.toFixed(3)),
             statRate: parseFloat(statWinRate.toFixed(1)),
             statScore: parseFloat((statScore * 100).toFixed(1)),
@@ -918,10 +947,12 @@ export const handler: Handler = async (event) => {
             horseWeight: 1000,
             last3Form: "—",
             investmentLabel: "NONE",
-            riskFactors: ["Error"],
+            riskFactors: [],
             weightD: 0,
             weightRatio: 0,
             weightRD: 0,
+            isGoldenWeightRD: false,
+            goldenScore: 0,
             timeAdvantage: 0,
             statRate: 0,
             statScore: 0,

@@ -212,6 +212,9 @@ function EVMatrixTable({ predictions, isPreRace, oddsStructure }: { predictions:
                 <td className="px-3 py-3">
                   <div className="font-medium text-slate-200 flex items-center gap-1.5">
                     {p.runnerName}
+                    {(p as any).isGoldenWeightRD && (
+                      <span className="text-emerald-400 text-xs" title={`WeightRD被低估信號 (矩陣分數: ${(p as any).goldenScore})`}>✨</span>
+                    )}
                     {(p as any).isStrongStar && (
                       <span className="text-yellow-400 text-xs" title="強勢星星指標 (勝率換算<10 且 即時賠率<10)">★</span>
                     )}

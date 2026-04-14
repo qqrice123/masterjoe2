@@ -14,6 +14,7 @@ export interface Prediction {
   score: number; grade: "A" | "B" | "C" | "D";
   rating: number; horseWeight: number; last3Form: string; analysis: string;
   weightD: number; weightRatio: number; weightRD: number;
+  isGoldenWeightRD?: boolean; goldenScore?: number;
   timeAdvantage: number; statRate: number; statScore: number;
   ratingScore: number; ageBonus: number; age: number;
   ageStage: "risingstar" | "primewarrior" | "veteran";
