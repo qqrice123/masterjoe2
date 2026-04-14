@@ -13,7 +13,7 @@ export interface Prediction {
   winOdds: number | string; placeOdds: number | string;
   score: number; grade: "A" | "B" | "C" | "D";
   rating: number; horseWeight: number; last3Form: string; analysis: string;
-  weightD: number; weightRatio: number; weightRD: number;
+  weightD: number; weightRatio: number; weightRD: number; weightRDBenchmark?: number;
   isGoldenWeightRD?: boolean; goldenScore?: number;
   isStrongStar?: boolean; isBlueStar?: boolean;
   timeAdvantage: number; statRate: number; statScore: number;

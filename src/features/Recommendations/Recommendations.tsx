@@ -24,7 +24,7 @@ function RankCard({ rank, horse, label, color }: {
         </span>
         {horse.finalPosition != null && (
           <span className={`ml-2 px-1.5 py-0.5 text-[10px] font-bold rounded ${
-            horse.finalPosition <= 3 
+            Number(horse.finalPosition) >= 1 && Number(horse.finalPosition) <= 3 
               ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" 
               : "bg-slate-700/50 text-slate-400"
           }`}>
