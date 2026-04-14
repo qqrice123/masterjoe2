@@ -67,6 +67,9 @@ const pollOddsHandler: Handler = async (
   const authHeader = event.headers.authorization || event.headers.Authorization
   const expectedToken = `Bearer ${process.env.CRON_SECRET}`
   
+  // 允許使用特定參數來繞過 MTP 限制，方便手動觸發測試
+  const forceMtp = event.queryStringParameters?.force === 'true'
+
   if (process.env.CRON_SECRET && authHeader !== expectedToken) {
     console.error("[poll-odds] 未經授權的呼叫")
     return { statusCode: 401, body: "Unauthorized" }
@@ -100,7 +103,7 @@ const pollOddsHandler: Handler = async (
 
         const mtp = minutesToPost(race.postTime)
         if (isNaN(mtp)) continue
-        if (mtp < -10 || mtp > 120) continue
+        if (!forceMtp && (mtp < -10 || mtp > 120)) continue
 
         const mtpBucket = getMtpBucket(mtp)
         const safeMtp = Math.max(-32768, Math.min(32767, mtp)) // smallint range
