@@ -667,7 +667,7 @@ export const handler: Handler = async (event) => {
       const benchmark = getWeightRDBenchmark(distance)
       const dynamicWeights = getDynamicWeights(distance, race.raceClass_en || race.raceClass_ch || "4")
 
-      const predictions: RunnerPrediction[] = runners.flatMap((r: any): RunnerPrediction[] => {
+      const predictions: RunnerPrediction[] = runners.flatMap((r: any, idx: number): RunnerPrediction[] => {
         try {
           const winOddsStr = r.winOdds || oddsMap[r.no.padStart(2, "0")] || oddsMap[r.no] || ""
           const hasOdds = winOddsStr !== ""
@@ -829,7 +829,7 @@ export const handler: Handler = async (event) => {
             String(r.no).includes("後備")
           ) {
             const match = String(r.no || "").match(/\d+/)
-            displayRunnerNumber = match ? `R${match[0]}` : "R"
+            displayRunnerNumber = match ? `R${match[0]}` : `R_S${idx}`
           }
 
           // ── Odds history ──────────────────────────────────────────────────
@@ -970,7 +970,7 @@ export const handler: Handler = async (event) => {
         } catch (runnerErr: any) {
           console.error(`Runner ${r?.no} parse error:`, runnerErr?.message)
           return [{
-            runnerNumber: r?.no ?? "?",
+            runnerNumber: (!r?.no || r?.no === "R") ? `R_S${idx}` : r.no,
             runnerName: r?.name_ch ?? r?.name_en ?? `Runner ${r?.no}`,
             jockey: r?.jockey?.name_ch ?? r?.jockey?.name_en ?? "—",
             trainer: r?.trainer?.name_ch ?? r?.trainer?.name_en ?? "—",
