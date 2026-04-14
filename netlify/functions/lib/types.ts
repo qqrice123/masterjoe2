@@ -8,7 +8,7 @@ export type QinFocus = "od1_group" | "od2_od3_group" | "spread" | "unknown"
 export type Grade = "A" | "B" | "C" | "D"
 export type InvestmentLabel = "BEST" | "STABLE" | "DARKHORSE" | "RISK" | "NONE"
 export type CombatStatus = "GO" | "CAUTION" | "SHADOW" | "AVOID"
-export type MoneyAlert = "large_bet" | "steady" | "drifting"
+export type MoneyAlert = "large_bet" | "drifting" | "qin_overflow" | "shortening" | "steady"
 export type AgeStage = "risingstar" | "primewarrior" | "veteran" | "unknown"
 
 export interface OddsHistory {

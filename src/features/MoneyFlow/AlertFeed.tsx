@@ -57,7 +57,7 @@ interface Prediction {
   estWinInvestment:  number | null
   estQINInvestment:  number | null
   estQPLInvestment?: number | null
-  moneyAlert?:       "large_bet" | "steady" | "drifting"
+  moneyAlert?:       "large_bet" | "drifting" | "qin_overflow" | "shortening" | "steady"
   oddsHistory:       OddsHistory
   winProbModel:      number
   modelOdds:         number

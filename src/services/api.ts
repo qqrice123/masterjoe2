@@ -35,7 +35,7 @@ export interface Prediction {
   estWinInvestment?: number;
   estQINInvestment?: number;
   estQPLInvestment?: number;
-  moneyAlert?: "large_bet" | "steady" | "drifting";
+  moneyAlert?: "large_bet" | "drifting" | "qin_overflow" | "shortening" | "steady";
   finalPosition?: number | null | string; // 賽果名次
   isTheoretical?: boolean;
 }

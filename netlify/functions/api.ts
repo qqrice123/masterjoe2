@@ -863,13 +863,30 @@ export const handler: Handler = async (event) => {
           })
           const estQPLInvestment = qplSum > 0 ? Math.round(qplSum) : null
 
-          let moneyAlert: "large_bet" | "drifting" | null = null
+          let moneyAlert: "large_bet" | "drifting" | "qin_overflow" | "shortening" | "steady" | null = null
           if (oddsHistory.min30 && !isNaN(parseFloat(r.winOdds))) {
             const prev = oddsHistory.min30
             const curr = parseFloat(r.winOdds)
-            // 賠率下跌 ≥ 20% 觸發大戶落飛警報
-            if (curr <= prev * 0.8) moneyAlert = "large_bet"
-            else if (curr >= prev * 1.2) moneyAlert = "drifting"
+            // 🔴 Drifting: Odds rose ≥ 15% in 15 min (using min30 as proxy for previous snapshot here if real min15 not available)
+            if (curr >= prev * 1.15) moneyAlert = "drifting"
+            // ⭐ Steaming (Shortening): Odds dropped ≥ 10% in 15 min
+            else if (curr <= prev * 0.90 && curr > prev * 0.80) moneyAlert = "shortening"
+            // 🟢 Large Bet: Odds dropped heavily (used to be <= 0.8) OR WIN share >= 20%
+            else if (curr <= prev * 0.80) moneyAlert = "large_bet"
+          }
+          
+          if (estWinInvestment && estWinInvestment > 0) {
+            // Signal A: Large Bet — WIN share >= 20%
+            if (estWinInvestment / WIN_BASE >= 0.20) {
+              moneyAlert = "large_bet"
+            }
+            // Signal C: QIN overflow — QIN investment >= 1.2x WIN investment
+            if (estQINInvestment && estQINInvestment >= estWinInvestment * 1.2) {
+              // Priority: large_bet/drifting > qin_overflow
+              if (moneyAlert !== "large_bet" && moneyAlert !== "drifting") {
+                moneyAlert = "qin_overflow"
+              }
+            }
           }
 
           const finalPosition = resultsMap[runnerKey] || null
