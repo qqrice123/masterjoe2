@@ -323,7 +323,7 @@ export default function App() {
         )}
 
 {activeTab === "moneyflow" && (
-          <MoneyFlow raceDetail={raceDetail ?? null} />
+          <MoneyFlow raceDetail={raceDetail ?? null} maxRaces={maxRaces} />
         )}
         {activeTab === "recommendations" && (
           <div className="space-y-4">

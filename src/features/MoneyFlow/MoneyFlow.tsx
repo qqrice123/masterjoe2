@@ -13,6 +13,7 @@ import { aiEngine }             from "../../services/aiLearning"
 import { OddsStructure, Prediction, RaceDetail } from "../../services/api"
 import { AlertFeed }            from "./AlertFeed"
 import { getWeightRDTooltip }   from "../../services/weightRD.utils"
+import { SmartMoneyBoard }      from "./SmartMoneyBoard"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CHART_COLORS = {
@@ -417,7 +418,7 @@ const OddsTable = memo(function OddsTable({
 })
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
+export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | null, maxRaces?: number }) {
   const predictions  = raceDetail?.predictions ?? []
   const pools        = raceDetail?.pools
   const oddsStruct   = raceDetail?.oddsStructure
@@ -464,8 +465,13 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Pool totals */}
+      <div className="space-y-4">
+        {/* Daily Smart Money Board */}
+        {raceDetail?.venueCode && maxRaces && maxRaces > 0 && (
+          <SmartMoneyBoard venueCode={raceDetail.venueCode} totalRaces={maxRaces} />
+        )}
+
+        {/* Pool totals */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <PoolBar label="WIN" icon="🏆" amount={pools?.WIN ?? 0}
           color={pools?.WIN ? "text-[#fff005]" : "text-slate-500"}
