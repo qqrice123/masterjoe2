@@ -110,18 +110,28 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
   predictions:   Prediction[]
   oddsStructure?: OddsStructure
 }) {
-  const systemTopPick = useMemo(
-    () => aiEngine.getTopPick(predictions, oddsStructure),
-    [predictions, oddsStructure],
-  )
+  const systemTopPick = useMemo(() => {
+    let bestRunner: string | number | null = null
+    let maxRatio = 0
+    predictions.forEach(p => {
+      if (String(p.runnerNumber).startsWith("R")) return
+      const win = p.estWinInvestment ?? 0
+      const qin = p.estQINInvestment ?? 0
+      const qpl = p.estQPLInvestment ?? 0
 
-  const evPicks = [...predictions]
-      .filter(p => p.combatStatus === "GO" && !String(p.runnerNumber).startsWith("R"))
-      .sort((a, b) => b.expectedValue - a.expectedValue)
-      .slice(0, 2)
-      .map(p => String(p.runnerNumber))
+      // 尋找「WIN黃柱短，QIN/QPL橘紫柱特別長」的馬，代表聰明錢繞過獨贏直接入連贏
+      if (win > 0 && (win + qin + qpl) > 5000) {
+        const ratio = (qin + qpl) / win
+        if (ratio > maxRatio) {
+          maxRatio = ratio
+          bestRunner = p.runnerNumber
+        }
+      }
+    })
+    return bestRunner
+  }, [predictions])
 
-    const data = predictions
+  const data = predictions
     .filter(p => p.estWinInvestment != null && !String(p.runnerNumber).startsWith("R"))
     .sort((a, b) => (b.estWinInvestment ?? 0) - (a.estWinInvestment ?? 0))
     .map(p => ({
@@ -133,7 +143,6 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
       qinWinRatio:  p.estWinInvestment && p.estWinInvestment > 0
                       ? (p.estQINInvestment ?? 0) / p.estWinInvestment : 0,
       isSystemTopPick: String(p.runnerNumber) === String(systemTopPick),
-      isEvPick:        evPicks.includes(String(p.runnerNumber)),
       moneyAlert:      p.moneyAlert,
       isGoldenWeightRD: p.isGoldenWeightRD ?? false,
       isOd1: String(p.runnerNumber) === String(oddsStructure?.od1Number),
@@ -174,7 +183,6 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
       const markers = []
       if (item.moneyAlert === "large_bet") markers.push({ color: "#ef4444", text: "#ffffff" })
       if (item.isSystemTopPick) markers.push({ color: "#7dd3fc", text: "#0f1117" })
-      if (item.isEvPick) markers.push({ color: "#f472b6", text: "#0f1117" })
 
       const hotLabel =
         item.isOd1 ? "①" : item.isOd2 ? "②" : item.isOd3 ? "③" : item.isOd4 ? "④" : ""
@@ -500,10 +508,7 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
             <span className="inline-block w-3 h-3 bg-[#ef4444] rounded-full mr-1" />大戶
           </span>
           <span className="flex items-center">
-            <span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1" />AI首選
-          </span>
-          <span className="flex items-center">
-            <span className="inline-block w-3 h-3 bg-[#f472b6] rounded-full mr-1" />EV首選
+            <span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1" />聰明錢(QIN/QPL異常)
           </span>
           <span className="flex items-center">
             <span className="text-emerald-400 font-bold mr-1">✨</span>WeightRD命中(3–9x)
