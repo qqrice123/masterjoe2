@@ -812,7 +812,7 @@ export const handler: Handler = async (event) => {
                 if (isRatingQualified && isAgeQualified) {
                   // 最終評分計算：已包含在 rawScore (若 rawScore 計算有不同權重，這邊也可使用 rawScore)
                   // 根據用戶要求，矩陣分數 >= 80 為強烈信號
-                  goldenScore = rawScore
+                  goldenScore = rawScore * conditionMult // Update golden score to matched final calculated score basis
                   if (goldenScore >= 80) {
                     isGoldenWeightRD = true
                   }

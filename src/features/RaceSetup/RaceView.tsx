@@ -123,7 +123,15 @@ export function RaceView() {
                     <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-bold">{p.runnerNumber}</span>
                   </td>
                   <td className="px-3 py-2.5 max-w-[160px]">
-                    <div className="font-medium text-slate-200 truncate">{p.runnerName}</div>
+                    <div className="font-medium text-slate-200 truncate flex items-center gap-1">
+                      {p.runnerName}
+                      {(p as any).isGoldenWeightRD && (
+                        <span className="text-emerald-400 text-xs" title={`WeightRD被低估信號 (矩陣分數: ${(p as any).goldenScore})`}>✨</span>
+                      )}
+                      {(p as any).isStrongStar && (
+                        <span className="text-yellow-400 text-xs" title="強勢星星指標 (勝率換算<10 且 即時賠率<10)">★</span>
+                      )}
+                    </div>
                     <div className="text-slate-500 truncate">{p.jockey} / {p.trainer}</div>
                   </td>
                   <td className="px-3 py-2.5"><GradeBadge grade={p.grade} /></td>
