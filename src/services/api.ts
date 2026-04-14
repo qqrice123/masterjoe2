@@ -99,4 +99,15 @@ export const api = {
     }
     return res.json();
   },
+  getAlerts: async (limit = 30, severity?: string, date?: string, type?: string, venue?: string, raceNo?: number) => {
+    let q = `?limit=${limit}`
+    if (severity) q += `&severity=${severity}`
+    if (date) q += `&date=${date}`
+    if (type) q += `&type=${type}`
+    if (venue) q += `&venue=${venue}`
+    if (raceNo) q += `&raceNo=${raceNo}`
+    const res = await fetch(`/api/alerts${q}`);
+    if (!res.ok) throw new Error("獲取警告數據失敗");
+    return res.json();
+  },
 };

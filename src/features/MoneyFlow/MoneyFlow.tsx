@@ -14,6 +14,7 @@ import { OddsStructure, Prediction, RaceDetail } from "../../services/api"
 import { AlertFeed }            from "./AlertFeed"
 import { getWeightRDTooltip }   from "../../services/weightRD.utils"
 import { SmartMoneyBoard }      from "./SmartMoneyBoard"
+import { SmartMoneyHistory }    from "./SmartMoneyHistory"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CHART_COLORS = {
@@ -530,6 +531,9 @@ export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | n
             <span className="text-emerald-400 font-bold mr-1">✨</span>WeightRD命中(3–9x)
           </span>
         </p>
+
+        {/* Smart Money Historical Dwell Time */}
+        {raceDetail && <SmartMoneyHistory raceDetail={raceDetail} />}
 
         {/* Golden Three Steps Guide */}
         <div className="mt-6 border-t border-[#1e293b] pt-5">

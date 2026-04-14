@@ -422,6 +422,9 @@ export const handler: Handler = async (event) => {
         const limit = Math.min(Number(urlParams.get("limit") ?? 30), 100)
         const severity = urlParams.get("severity") ?? undefined
         const date = urlParams.get("date") ?? undefined
+        const alertType = urlParams.get("type") ?? undefined
+        const venue = urlParams.get("venue") ?? undefined
+        const raceNo = urlParams.get("raceNo") ? Number(urlParams.get("raceNo")) : undefined
 
         if (!process.env.DATABASE_URL) {
           return json(500, { error: "DATABASE_URL not configured" })
@@ -429,16 +432,34 @@ export const handler: Handler = async (event) => {
 
         const sql = neon(process.env.DATABASE_URL)
 
-        let historyQuery
-        if (date && severity) {
-          historyQuery = sql`SELECT * FROM alerts WHERE date = ${date}::date AND severity = ${severity} ORDER BY detected_at DESC LIMIT ${limit}`
-        } else if (date) {
-          historyQuery = sql`SELECT * FROM alerts WHERE date = ${date}::date ORDER BY detected_at DESC LIMIT ${limit}`
-        } else if (severity) {
-          historyQuery = sql`SELECT * FROM alerts WHERE severity = ${severity} ORDER BY detected_at DESC LIMIT ${limit}`
-        } else {
-          historyQuery = sql`SELECT * FROM alerts ORDER BY detected_at DESC LIMIT ${limit}`
+        const conditions = []
+        const params: any[] = []
+
+        if (date) {
+          conditions.push(`date = $${params.length + 1}::date`)
+          params.push(date)
         }
+        if (severity) {
+          conditions.push(`severity = $${params.length + 1}`)
+          params.push(severity)
+        }
+        if (alertType) {
+          conditions.push(`alert_type = $${params.length + 1}`)
+          params.push(alertType)
+        }
+        if (venue) {
+          conditions.push(`venue = $${params.length + 1}`)
+          params.push(venue)
+        }
+        if (raceNo) {
+          conditions.push(`race_no = $${params.length + 1}::int`)
+          params.push(raceNo)
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
+        
+        // 使用 sql.bind() 或者直接組裝 query。但 neon sdk 可以用 sql(query, params)
+        const historyQuery = sql(`SELECT * FROM alerts ${whereClause} ORDER BY detected_at DESC LIMIT $${params.length + 1}`, [...params, limit])
 
         const statsQuery = sql`
           SELECT

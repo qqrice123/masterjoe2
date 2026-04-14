@@ -9,7 +9,7 @@
 import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions"
 import { neon } from "@neondatabase/serverless"
 import { HorseRacingAPI, HKJCClient } from "hkjc-api"
-import { horseOddsQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
+import { horseOddsQuery, horsePoolQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
 
 const sql = neon(process.env.DATABASE_URL!)
 
@@ -110,19 +110,34 @@ const pollOddsHandler: Handler = async (
 
         let oddsNodes: Array<{ combString: string; oddsValue: string }> = []
         let qinOddsNodes: Array<{ combString: string; oddsValue: string }> = []
+        let qplOddsNodes: Array<{ combString: string; oddsValue: string }> = []
         
+        let winPoolInv = 28000000
+        let qinPoolInv = 20000000
+        let qplPoolInv = 15000000
+
         try {
           const oddsResponse: any = await hkjcClient.request(horseOddsQuery, {
             date: meeting.date,
             venueCode: meeting.venueCode,
             raceNo,
-            oddsTypes: ["WIN", "QIN"],
+            oddsTypes: ["WIN", "QIN", "QPL"],
           })
           const pools = oddsResponse.raceMeetings?.[0]?.pmPools || []
-          const winPool = pools.find((p: any) => p.oddsType === "WIN")
-          const qinPool = pools.find((p: any) => p.oddsType === "QIN")
-          oddsNodes = winPool?.oddsNodes || []
-          qinOddsNodes = qinPool?.oddsNodes || []
+          oddsNodes = pools.find((p: any) => p.oddsType === "WIN")?.oddsNodes || []
+          qinOddsNodes = pools.find((p: any) => p.oddsType === "QIN")?.oddsNodes || []
+          qplOddsNodes = pools.find((p: any) => p.oddsType === "QPL")?.oddsNodes || []
+
+          const poolResponse: any = await hkjcClient.request(horsePoolQuery, {
+            date: meeting.date,
+            venueCode: meeting.venueCode,
+            raceNo,
+            oddsTypes: ["WIN", "QIN", "QPL"],
+          })
+          const poolInvs = poolResponse.raceMeetings?.[0]?.poolInvs || []
+          winPoolInv = Number(poolInvs.find((p: any) => p.oddsType === "WIN")?.investment || winPoolInv)
+          qinPoolInv = Number(poolInvs.find((p: any) => p.oddsType === "QIN")?.investment || qinPoolInv)
+          qplPoolInv = Number(poolInvs.find((p: any) => p.oddsType === "QPL")?.investment || qplPoolInv)
         } catch (e: any) {
           errors.push(`賠率抓取失敗 ${venue} R${raceNo}: ${e?.message}`)
           continue
@@ -130,11 +145,51 @@ const pollOddsHandler: Handler = async (
 
         if (oddsNodes.length === 0) continue
 
+        // 計算聰明錢 (SMART_MONEY)
+        const DEDUCT = 0.825
+        let bestSmartMoneyRunner: string | null = null
+        let maxSmartMoneyRatio = 0
+
         const runnersMap: Record<string, string> = {}
         const runners = race.runners || []
         for (const r of runners) {
           const key = String(r.no).padStart(2, "0")
           runnersMap[key] = r.name_ch || r.name_en || ""
+
+          if (String(r.no).startsWith("R") || String(r.no).toLowerCase().includes("standby") || String(r.no).includes("後備")) continue
+
+          const winOddsObj = oddsNodes.find(n => n.combString === key)
+          if (!winOddsObj) continue
+          const winOdds = parseFloat(winOddsObj.oddsValue)
+          if (isNaN(winOdds) || winOdds <= 0) continue
+
+          const estWin = (winPoolInv * DEDUCT) / winOdds
+
+          let qinSum = 0
+          for (const node of qinOddsNodes) {
+            const odds = parseFloat(node.oddsValue)
+            if (odds > 0) {
+              const parts = node.combString.split(",").map(x => x.padStart(2, "0"))
+              if (parts.includes(key)) qinSum += (qinPoolInv * DEDUCT) / odds
+            }
+          }
+
+          let qplSum = 0
+          for (const node of qplOddsNodes) {
+            const odds = parseFloat(node.oddsValue)
+            if (odds > 0) {
+              const parts = node.combString.split(",").map(x => x.padStart(2, "0"))
+              if (parts.includes(key)) qplSum += (qplPoolInv * DEDUCT) / odds
+            }
+          }
+
+          if (estWin > 0 && (estWin + qinSum + qplSum) > 5000) {
+            const ratio = (qinSum + qplSum) / estWin
+            if (ratio > maxSmartMoneyRatio) {
+              maxSmartMoneyRatio = ratio
+              bestSmartMoneyRunner = key
+            }
+          }
         }
         
         // 取得前一次快照 (用於計算跌幅)
@@ -177,9 +232,11 @@ const pollOddsHandler: Handler = async (
             
             const snaptime = new Date().toISOString()
             
-            if (isLargeBet) {
-              const alertId = `${raceDate}_${venue}_${raceNo}_${paddedNo}_${mtpBucket}`
-              const severity = dropPct && dropPct >= 35 ? "CRITICAL" : "HIGH"
+            if (isLargeBet || paddedNo === bestSmartMoneyRunner) {
+              const isSM = paddedNo === bestSmartMoneyRunner
+              const alertType = isLargeBet ? "LARGE_BET" : "SMART_MONEY"
+              const alertId = `${raceDate}_${venue}_${raceNo}_${paddedNo}_${mtpBucket}_${alertType}`
+              const severity = isLargeBet ? (dropPct && dropPct >= 35 ? "CRITICAL" : "HIGH") : "HIGH"
               newAlerts.push({
                 alertId,
                 venue,
@@ -187,11 +244,11 @@ const pollOddsHandler: Handler = async (
                 raceName: race.raceName_ch || race.raceName_en || "",
                 runnerNumber: paddedNo,
                 runnerName: horseName,
-                alertType: "LARGE_BET",
+                alertType,
                 severity,
                 prevOdds,
                 currentOdds: odds,
-                dropPct
+                dropPct: isSM ? maxSmartMoneyRatio : (dropPct || 0), // SMART_MONEY 將 Ratio 存在 dropPct 欄位
               })
               
               // 記錄寫入 Alert 的 Query
@@ -203,7 +260,7 @@ const pollOddsHandler: Handler = async (
                   DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post, snaptime = EXCLUDED.snaptime
                 )
                 INSERT INTO alerts (alert_id, venue, race_no, race_name, runner_number, runner_name, alert_type, severity, prev_odds, current_odds, drop_pct, date)
-                VALUES (${alertId}, ${venue}, ${raceNo}, ${race.raceName_ch || race.raceName_en || ""}, ${paddedNo}, ${horseName}, 'LARGE_BET', ${severity}, ${prevOdds}, ${odds}, ${dropPct}, ${raceDate})
+                VALUES (${alertId}, ${venue}, ${raceNo}, ${race.raceName_ch || race.raceName_en || ""}, ${paddedNo}, ${horseName}, ${alertType}, ${severity}, ${prevOdds}, ${odds}, ${isSM ? maxSmartMoneyRatio : dropPct}, ${raceDate})
                 ON CONFLICT (alert_id) DO NOTHING
               `
             }
