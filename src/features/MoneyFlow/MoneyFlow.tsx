@@ -255,7 +255,7 @@ const OddsTable = memo(function OddsTable({ predictions, totalWin }: { predictio
             const isLarge = alert === "large_bet"
             const isDrift = alert === "drifting"
             const oddsNum = parseFloat(String(p.winOdds))
-            const refOdds = p.oddsHistory.min3 ?? p.oddsHistory.min15
+            const refOdds = p.oddsHistory.prev3min ?? p.oddsHistory.min15
             const oddsChanged =
               refOdds &&
               !isNaN(oddsNum) &&

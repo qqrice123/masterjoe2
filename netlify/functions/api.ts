@@ -579,6 +579,11 @@ export const handler: Handler = async (event) => {
           const sql = neon(process.env.DATABASE_URL)
           const d = meeting.date.replace(/[\/-]/g, "")
           const isoDate = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
+          
+          const now = new Date()
+          const threeMinAgo = new Date(now.getTime() - 3 * 60 * 1000).toISOString()
+          const sixMinAgo = new Date(now.getTime() - 6 * 60 * 1000).toISOString()
+          
           const [min15Rows, min30Rows, min3Rows, resultRows] = await Promise.all([
             sql`
               SELECT runner_number, odds
@@ -604,7 +609,9 @@ export const handler: Handler = async (event) => {
               WHERE date = ${isoDate}
                 AND venue = ${venueCode.toUpperCase()}
                 AND race_no = ${raceNo}
-                AND mtp_bucket = 3
+                AND snaptime >= ${sixMinAgo}
+                AND snaptime <= ${threeMinAgo}
+              ORDER BY snaptime DESC
               LIMIT 20
             `,
             sql`
@@ -826,11 +833,11 @@ export const handler: Handler = async (event) => {
           }
 
           // ── Odds history ──────────────────────────────────────────────────
-          const oddsHistory: any = { overnight: null, min30: null, min15: null, min3: null, current: displayOdds }
+          const oddsHistory: any = { overnight: null, min30: null, min15: null, prev3min: null, current: displayOdds }
           const runnerKey = String(displayRunnerNumber).replace(/\D/g, "").padStart(2, "0")
           if (historicalOddsMap[runnerKey]) oddsHistory.min15 = historicalOddsMap[runnerKey]
           if (min30OddsMap[runnerKey]) oddsHistory.min30 = min30OddsMap[runnerKey]
-          if (min3OddsMap[runnerKey]) oddsHistory.min3 = min3OddsMap[runnerKey]
+          if (min3OddsMap[runnerKey]) oddsHistory.prev3min = min3OddsMap[runnerKey]
 
           // Fallback: deterministic drift when no Neon data yet
           if (!oddsHistory.min15 && displayOdds !== "—") {
@@ -879,15 +886,15 @@ export const handler: Handler = async (event) => {
           const estQPLInvestment = qplSum > 0 ? Math.round(qplSum) : null
 
           let moneyAlert: "large_bet" | "drifting" | "qin_overflow" | "shortening" | "steady" | null = null
-          if (oddsHistory.min3 && !isNaN(parseFloat(r.winOdds))) {
-            const prev = oddsHistory.min3
+          if (oddsHistory.prev3min && !isNaN(parseFloat(r.winOdds))) {
+            const prev = oddsHistory.prev3min
             const curr = parseFloat(r.winOdds)
-            // 🔴 Drifting: Odds rose ≥ 15% in 3 min
-            if (curr >= prev * 1.15) moneyAlert = "drifting"
+            // 🔴 Drifting: Odds rose ≥ 10% in 3 min
+            if (curr > prev * 1.10) moneyAlert = "drifting"
+            // 🟢 Large Bet: Odds dropped heavily
+            else if (curr < prev * 0.80) moneyAlert = "large_bet"
             // ⭐ Steaming (Shortening): Odds dropped ≥ 10% in 3 min
-            else if (curr <= prev * 0.90 && curr > prev * 0.80) moneyAlert = "shortening"
-            // 🟢 Large Bet: Odds dropped heavily (used to be <= 0.8) OR WIN share >= 20%
-            else if (curr <= prev * 0.80) moneyAlert = "large_bet"
+            else if (curr < prev * 0.90) moneyAlert = "shortening"
           }
           
           if (estWinInvestment && estWinInvestment > 0) {

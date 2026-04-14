@@ -172,6 +172,8 @@ const pollOddsHandler: Handler = async (
               }
             }
             
+            const snaptime = new Date().toISOString()
+            
             if (isLargeBet) {
               const alertId = `${raceDate}_${venue}_${raceNo}_${paddedNo}_${mtpBucket}`
               const severity = dropPct && dropPct >= 35 ? "CRITICAL" : "HIGH"
@@ -192,10 +194,10 @@ const pollOddsHandler: Handler = async (
               // 記錄寫入 Alert 的 Query
               return sql`
                 WITH snapshot_insert AS (
-                  INSERT INTO odds_snapshots (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket)
-                  VALUES (${raceDate}, ${venue}, ${raceNo}, ${node.combString}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket})
+                  INSERT INTO odds_snapshots (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket, snaptime)
+                  VALUES (${raceDate}, ${venue}, ${raceNo}, ${node.combString}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket}, ${snaptime})
                   ON CONFLICT (date, venue, race_no, runner_number, mtp_bucket) 
-                  DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post
+                  DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post, snaptime = EXCLUDED.snaptime
                 )
                 INSERT INTO alerts (alert_id, venue, race_no, race_name, runner_number, runner_name, alert_type, severity, prev_odds, current_odds, drop_pct, date)
                 VALUES (${alertId}, ${venue}, ${raceNo}, ${race.raceName_ch || race.raceName_en || ""}, ${paddedNo}, ${horseName}, 'LARGE_BET', ${severity}, ${prevOdds}, ${odds}, ${dropPct}, ${raceDate})
@@ -206,11 +208,11 @@ const pollOddsHandler: Handler = async (
             // 一般的賠率快照更新
             return sql`
               INSERT INTO odds_snapshots
-                (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket)
+                (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket, snaptime)
               VALUES
-                (${raceDate}, ${venue}, ${raceNo}, ${node.combString}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket})
+                (${raceDate}, ${venue}, ${raceNo}, ${node.combString}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket}, ${snaptime})
               ON CONFLICT (date, venue, race_no, runner_number, mtp_bucket) 
-              DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post
+              DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post, snaptime = EXCLUDED.snaptime
             `
           }).filter(Boolean) as any[]
 

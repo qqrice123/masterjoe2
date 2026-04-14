@@ -29,7 +29,7 @@ export interface Prediction {
   combatStatus?: "GO" | "SHADOW" | "CAUTION" | "AVOID";
   oddsHistory?: {
     overnight: number | string | null; min30: number | string | null;
-    min15: number | string | null; min3?: number | string | null; current: number | string | null;
+    min15: number | string | null; prev3min?: number | string | null; current: number | string | null;
   };
   // ── NEW: 彩池投注額估算 ──
   estWinInvestment?: number;

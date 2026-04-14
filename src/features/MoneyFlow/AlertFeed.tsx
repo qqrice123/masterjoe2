@@ -43,7 +43,7 @@ interface OddsHistory {
   overnight: number | null
   min30:     number | null
   min15:     number | null
-  min3:      number | null
+  prev3min:  number | null
   /** 即時賠率：null 代表未開盤，顯示時轉為「—」 */
   current:   number | null
 }
@@ -135,9 +135,9 @@ function buildAlertItem(p: Prediction): AlertItem | null {
   const qinRatio = win > 0 ? qin / win : 0
   const qplRatio = win > 0 ? qpl / win : 0
 
-  // 取最近一個有效的前置賠率（優先 min3，其次 min15，再來 min30，最後 overnight）
+  // 取最近一個有效的前置賠率（優先 prev3min，其次 min15，再來 min30，最後 overnight）
   const prevOdds =
-    p.oddsHistory.min3 ?? p.oddsHistory.min15 ?? p.oddsHistory.min30 ?? p.oddsHistory.overnight
+    p.oddsHistory.prev3min ?? p.oddsHistory.min15 ?? p.oddsHistory.min30 ?? p.oddsHistory.overnight
 
   const currentOdds = p.oddsHistory.current
 
@@ -148,7 +148,7 @@ function buildAlertItem(p: Prediction): AlertItem | null {
     { label: "過夜", odds: p.oddsHistory.overnight },
     { label: "-30m", odds: p.oddsHistory.min30 },
     { label: "-15m", odds: p.oddsHistory.min15 },
-    { label: "-3m", odds: p.oddsHistory.min3 },
+    { label: "3前", odds: p.oddsHistory.prev3min },
     { label: "即時", odds: p.oddsHistory.current },
   ]
 
