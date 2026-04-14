@@ -98,9 +98,10 @@ export default async (req: Request) => {
 
         const mtp = minutesToPost(race.postTime)
         if (isNaN(mtp)) continue
-        // 為了確保可以抓取所有賽事（即使是未來或剛結束的），當 forceMtp 為 true 時放寬限制
-        if (!forceMtp && (mtp < -15 || mtp > 120)) {
-          // console.log(`[poll-odds] 跳過 ${venue} R${raceNo} (MTP: ${mtp})`)
+        // 為了確保可以抓取所有賽事（包含前一天中午開始的早盤賠率），移除 MTP 上限
+        // 只要不是已經跑完超過 15 分鐘的賽事，都會抓取
+        if (!forceMtp && mtp < -15) {
+          // console.log(`[poll-odds] 跳過已結束賽事 ${venue} R${raceNo} (MTP: ${mtp})`)
           continue
         }
 
