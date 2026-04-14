@@ -7,6 +7,7 @@
  *
  */
 import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions"
+import { schedule } from "@netlify/functions"
 import { neon } from "@neondatabase/serverless"
 import { HorseRacingAPI, HKJCClient } from "hkjc-api"
 import { horseOddsQuery, horsePoolQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
@@ -59,21 +60,12 @@ function getMtpBucket(mtp: number): number {
 }
 
 // ---- 主 handler ----
-const pollOddsHandler: Handler = async (
+const pollOddsLogic = async (
   event: HandlerEvent,
   _context: HandlerContext
 ) => {
-  // 驗證內部呼叫用的 Secret Key (由 GitHub Actions 帶上)
-  const authHeader = event.headers.authorization || event.headers.authorization || ""
-  const expectedToken = `Bearer ${process.env.CRON_SECRET}`
-  
   // 允許使用特定參數來繞過 MTP 限制，方便手動觸發測試
   const forceMtp = event.queryStringParameters?.force === 'true'
-
-  if (process.env.CRON_SECRET && authHeader !== expectedToken && !forceMtp) {
-    console.error("[poll-odds] 未經授權的呼叫")
-    return { statusCode: 401, body: "Unauthorized" }
-  }
 
   if (!process.env.DATABASE_URL) {
     console.error("[poll-odds] DATABASE_URL 未設定")
@@ -382,5 +374,5 @@ const pollOddsHandler: Handler = async (
   }
 }
 
-// 已經改由 GitHub Actions 定時觸發此 API 端點
-export const handler = pollOddsHandler
+// 改由 Netlify 內建的 Scheduled Functions 每 5 分鐘自動執行
+export const handler = schedule("*/5 * * * *", pollOddsLogic)
