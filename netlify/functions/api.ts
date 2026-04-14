@@ -572,29 +572,46 @@ export const handler: Handler = async (event) => {
       // ── Step 4: Historical odds and Race Results from Neon ─────────────
       let historicalOddsMap: Record<string, number> = {}
       let min30OddsMap: Record<string, number> = {}
+      let min3OddsMap: Record<string, number> = {}
       let resultsMap: Record<string, number> = {}
       if (process.env.DATABASE_URL) {
         try {
           const sql = neon(process.env.DATABASE_URL)
           const d = meeting.date.replace(/[\/-]/g, "")
           const isoDate = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
-          const [min15Rows, min30Rows, resultRows] = await Promise.all([
+          
+          const now = new Date()
+          const threeMinAgo = new Date(now.getTime() - 3 * 60 * 1000).toISOString()
+          const sixMinAgo = new Date(now.getTime() - 6 * 60 * 1000).toISOString()
+          
+          const [min15Rows, min30Rows, min3Rows, resultRows] = await Promise.all([
             sql`
               SELECT runner_number, odds
               FROM odds_snapshots
               WHERE date = ${isoDate}
-              AND venue = ${venueCode.toUpperCase()}
-              AND race_no = ${raceNo}
-              AND mtp_bucket = 15
+                AND venue = ${venueCode.toUpperCase()}
+                AND race_no = ${raceNo}
+                AND mtp_bucket = 15
               LIMIT 20
             `,
             sql`
               SELECT runner_number, odds
               FROM odds_snapshots
               WHERE date = ${isoDate}
-              AND venue = ${venueCode.toUpperCase()}
-              AND race_no = ${raceNo}
-              AND mtp_bucket = 30
+                AND venue = ${venueCode.toUpperCase()}
+                AND race_no = ${raceNo}
+                AND mtp_bucket = 30
+              LIMIT 20
+            `,
+            sql`
+              SELECT runner_number, odds
+              FROM odds_snapshots
+              WHERE date = ${isoDate}
+                AND venue = ${venueCode.toUpperCase()}
+                AND race_no = ${raceNo}
+                AND snaptime >= ${sixMinAgo}
+                AND snaptime <= ${threeMinAgo}
+              ORDER BY snaptime DESC
               LIMIT 20
             `,
             sql`
@@ -612,6 +629,10 @@ export const handler: Handler = async (event) => {
           min30Rows.forEach((row: any) => {
             const runnerNum = String(row.runner_number).padStart(2, "0")
             if (!min30OddsMap[runnerNum]) min30OddsMap[runnerNum] = parseFloat(row.odds)
+          })
+          min3Rows.forEach((row: any) => {
+            const runnerNum = String(row.runner_number).padStart(2, "0")
+            if (!min3OddsMap[runnerNum]) min3OddsMap[runnerNum] = parseFloat(row.odds)
           })
           resultRows.forEach((row: any) => {
             const runnerNum = String(row.runner_number).replace(/\D/g, "").padStart(2, "0")
@@ -812,10 +833,11 @@ export const handler: Handler = async (event) => {
           }
 
           // ── Odds history ──────────────────────────────────────────────────
-          const oddsHistory: any = { overnight: null, min30: null, min15: null, current: displayOdds }
+          const oddsHistory: any = { overnight: null, min30: null, min15: null, prev3min: null, current: displayOdds }
           const runnerKey = String(displayRunnerNumber).replace(/\D/g, "").padStart(2, "0")
           if (historicalOddsMap[runnerKey]) oddsHistory.min15 = historicalOddsMap[runnerKey]
           if (min30OddsMap[runnerKey]) oddsHistory.min30 = min30OddsMap[runnerKey]
+          if (min3OddsMap[runnerKey]) oddsHistory.prev3min = min3OddsMap[runnerKey]
 
           // Fallback: deterministic drift when no Neon data yet
           if (!oddsHistory.min15 && displayOdds !== "—") {
@@ -864,15 +886,15 @@ export const handler: Handler = async (event) => {
           const estQPLInvestment = qplSum > 0 ? Math.round(qplSum) : null
 
           let moneyAlert: "large_bet" | "drifting" | "qin_overflow" | "shortening" | "steady" | null = null
-          if (oddsHistory.min30 && !isNaN(parseFloat(r.winOdds))) {
-            const prev = oddsHistory.min30
+          if (oddsHistory.prev3min && !isNaN(parseFloat(r.winOdds))) {
+            const prev = oddsHistory.prev3min
             const curr = parseFloat(r.winOdds)
-            // 🔴 Drifting: Odds rose ≥ 15% in 15 min (using min30 as proxy for previous snapshot here if real min15 not available)
-            if (curr >= prev * 1.15) moneyAlert = "drifting"
-            // ⭐ Steaming (Shortening): Odds dropped ≥ 10% in 15 min
-            else if (curr <= prev * 0.90 && curr > prev * 0.80) moneyAlert = "shortening"
-            // 🟢 Large Bet: Odds dropped heavily (used to be <= 0.8) OR WIN share >= 20%
-            else if (curr <= prev * 0.80) moneyAlert = "large_bet"
+            // 🔴 Drifting: Odds rose ≥ 10% in 3 min
+            if (curr > prev * 1.10) moneyAlert = "drifting"
+            // 🟢 Large Bet: Odds dropped heavily
+            else if (curr < prev * 0.80) moneyAlert = "large_bet"
+            // ⭐ Steaming (Shortening): Odds dropped ≥ 10% in 3 min
+            else if (curr < prev * 0.90) moneyAlert = "shortening"
           }
           
           if (estWinInvestment && estWinInvestment > 0) {
