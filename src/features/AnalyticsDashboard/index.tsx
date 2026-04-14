@@ -199,10 +199,25 @@ function EVMatrixTable({
   isPreRace:      boolean
   oddsStructure?: OddsStructure
 }) {
-  const systemTopPick = useMemo(
-    () => aiEngine.getTopPick(predictions, oddsStructure),
-    [predictions, oddsStructure],
-  )
+  const systemTopPick = useMemo(() => {
+    let bestRunner: string | number | null = null
+    let maxRatio = 0
+    predictions.forEach(p => {
+      if (String(p.runnerNumber).startsWith("R")) return
+      const win = p.estWinInvestment ?? 0
+      const qin = p.estQINInvestment ?? 0
+      const qpl = p.estQPLInvestment ?? 0
+
+      if (win > 0 && (win + qin + qpl) > 5000) {
+        const ratio = (qin + qpl) / win
+        if (ratio > maxRatio) {
+          maxRatio = ratio
+          bestRunner = p.runnerNumber
+        }
+      }
+    })
+    return bestRunner
+  }, [predictions])
 
   if (!predictions?.length) return null
 
@@ -223,10 +238,10 @@ function EVMatrixTable({
         </thead>
         <tbody>
           {predictions.map((p, i) => {
-            const isReserve      = String(p.runnerNumber).startsWith("R")
-            const isSystemTopPick = p.runnerNumber === systemTopPick
+            const isReserve       = String(p.runnerNumber).startsWith("R")
+            const isSystemTopPick = String(p.runnerNumber) === String(systemTopPick)
             // FIX: use prev3min for fast drift detection
-            const refOdds        = p.oddsHistory?.prev3min ?? p.oddsHistory?.min15
+            const refOdds         = p.oddsHistory?.prev3min ?? p.oddsHistory?.min15
 
             return (
               <tr key={p.runnerNumber}
@@ -240,7 +255,7 @@ function EVMatrixTable({
                 <td className="px-3 py-3 font-mono font-bold text-slate-300 whitespace-nowrap relative">
                   {isSystemTopPick && (
                     <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#7dd3fc]"
-                      title="AI首選" />
+                      title="聰明錢(QIN/QPL異常)" />
                   )}
                   <span className={isSystemTopPick ? "ml-2" : ""}>{p.runnerNumber}</span>
                   {p.draw > 0 && (
@@ -255,8 +270,8 @@ function EVMatrixTable({
                     {/* FIX: typed WeightRD badges */}
                     <WeightRDBadges p={p} />
                     {isSystemTopPick && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#7dd3fc]/20 text-[#7dd3fc] border border-[#7dd3fc]/30 whitespace-nowrap">
-                        AI
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#7dd3fc]/20 text-[#7dd3fc] border border-[#7dd3fc]/30 whitespace-nowrap" title="聰明錢繞過獨贏直接入連贏">
+                        聰明錢
                       </span>
                     )}
                   </div>

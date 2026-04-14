@@ -1,8 +1,9 @@
 // src/components/features/RaceView/RaceView.tsx
 // FIX: (p as any) removed; WeightRD + timeAdvantage fully typed; prev3min used
 
-import { useQuery }          from "@tanstack/react-query"
-import { useRoute }          from "wouter"
+import { useQuery } from "@tanstack/react-query"
+import { useRoute } from "wouter"
+import { useMemo } from "react"
 import { api, RaceDetail, Prediction } from "../../services/api"
 import { getWeightRDTooltip }           from "../../services/weightRD.utils"
 import { MoneyFlowChart }    from "../MoneyFlow/MoneyFlowChart"
@@ -71,6 +72,28 @@ export function RaceView() {
     refetchInterval: 30_000,
   })
 
+  const preds = race?.predictions ?? []
+
+  const systemTopPick = useMemo(() => {
+    let bestRunner: string | number | null = null
+    let maxRatio = 0
+    preds.forEach(p => {
+      if (String(p.runnerNumber).startsWith("R")) return
+      const win = p.estWinInvestment ?? 0
+      const qin = p.estQINInvestment ?? 0
+      const qpl = p.estQPLInvestment ?? 0
+
+      if (win > 0 && (win + qin + qpl) > 5000) {
+        const ratio = (qin + qpl) / win
+        if (ratio > maxRatio) {
+          maxRatio = ratio
+          bestRunner = p.runnerNumber
+        }
+      }
+    })
+    return bestRunner
+  }, [preds])
+
   if (isLoading) return (
     <div className="flex items-center justify-center h-64 text-slate-400 gap-3">
       <div className="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
@@ -79,7 +102,6 @@ export function RaceView() {
   )
   if (!race) return <div className="text-slate-400 p-8 text-center">找不到賽事資料</div>
 
-  const preds = race.predictions ?? []
   const headers = ["#","馬匹","級","狀態","勝率","賠率","WIN","QIN","QPL","EV","時差","備註"]
 
   return (
@@ -118,19 +140,27 @@ export function RaceView() {
             </thead>
             <tbody>
               {preds.map((p: Prediction, i: number) => {
+                const isSystemTopPick = String(p.runnerNumber) === String(systemTopPick)
                 // FIX: prev3min used; no (p as any)
                 const refOdds = p.oddsHistory?.prev3min ?? p.oddsHistory?.min30
                 return (
                   <tr key={p.runnerNumber}
                     className={`border-t border-[#2a3352] hover:bg-[#1c2333]/60 transition-colors ${i===0?"bg-blue-500/5":""}`}>
-                    <td className="px-3 py-2.5">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-bold">{p.runnerNumber}</span>
+                    <td className="px-3 py-2.5 relative">
+                      {isSystemTopPick && (
+                        <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#7dd3fc]" title="聰明錢(QIN/QPL異常)" />
+                      )}
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-bold ${isSystemTopPick ? "ml-2" : ""}`}>{p.runnerNumber}</span>
                     </td>
                     <td className="px-3 py-2.5 max-w-[160px]">
                       <div className="font-medium text-slate-200 truncate flex items-center gap-1">
                         {p.runnerName}
-                        {/* FIX: typed WeightRD badge */}
                         <WeightRDBadge p={p} />
+                        {isSystemTopPick && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#7dd3fc]/20 text-[#7dd3fc] border border-[#7dd3fc]/30 whitespace-nowrap" title="聰明錢繞過獨贏直接入連贏">
+                            聰明錢
+                          </span>
+                        )}
                       </div>
                       <div className="text-slate-500 truncate">{p.jockey} / {p.trainer}</div>
                     </td>
