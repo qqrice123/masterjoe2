@@ -279,13 +279,13 @@ const OddsTable = memo(function OddsTable({ predictions, totalWin }: { predictio
                     </span>
                     <span className="text-slate-300 truncate max-w-[80px]">
                       {p.runnerName}
-                      {(p as any).isGoldenWeightRD && (
-                        <span className="ml-1 text-emerald-400" title={`WeightRD被低估信號 (矩陣分數: ${(p as any).goldenScore})`}>✨</span>
+                      {p.isGoldenWeightRD && (
+                        <span className="ml-1 text-emerald-400" title={`WeightRD被低估信號 (矩陣分數: ${p.goldenScore})`}>✨</span>
                       )}
-                      {(p as any).isStrongStar && (
+                      {p.isStrongStar && (
                         <span className="ml-1 text-yellow-400" title="強勢星星指標 (勝率換算<10 且 即時賠率<10)">★</span>
                       )}
-                      {(p as any).isBlueStar && (
+                      {p.isBlueStar && (
                         <span className="ml-1 text-blue-400" title="混亂局藍星指標 (系統勝率頭4 且 即時賠率10-19.9)">★</span>
                       )}
                     </span>

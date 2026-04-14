@@ -65,6 +65,8 @@ export interface RunnerPrediction {
   weightRD: number
   isGoldenWeightRD?: boolean
   goldenScore?: number
+  isStrongStar?: boolean
+  isBlueStar?: boolean
   timeAdvantage: number
   statRate: number
   statScore: number
