@@ -880,8 +880,8 @@ export const handler: Handler = async (event) => {
             if (estWinInvestment / WIN_BASE >= 0.20) {
               moneyAlert = "large_bet"
             }
-            // Signal C: QIN overflow — QIN investment >= 1.2x WIN investment
-            if (estQINInvestment && estQINInvestment >= estWinInvestment * 1.2) {
+            // Signal C: QIN overflow — QIN investment >= 1.0x WIN investment
+            if (estQINInvestment && estQINInvestment >= estWinInvestment * 1.0) {
               // Priority: large_bet/drifting > qin_overflow
               if (moneyAlert !== "large_bet" && moneyAlert !== "drifting") {
                 moneyAlert = "qin_overflow"
@@ -1118,7 +1118,8 @@ export const handler: Handler = async (event) => {
       // ══════════════════════════════════════════════════════════════════════
       if (oddsStructure.raceTypeCode === "CHAOTIC") {
         // pre-race 時兩個投注池都用估算基數，QIN 因組合數多天然偏高，門檻須更嚴格
-        const CHAOTIC_QIN_THRESHOLD = isPreRace ? 3.0 : 1.5
+        // (註：由於 QIN 也套用了 0.825 抽水計算，比例會比以前低 17.5%，因此下調門檻)
+        const CHAOTIC_QIN_THRESHOLD = isPreRace ? 2.5 : 1.2
 
         const od2Runners = validPredictions.filter((p: any) => {
           if (p.winOdds === "—") return false
