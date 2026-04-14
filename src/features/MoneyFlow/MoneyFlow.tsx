@@ -657,8 +657,8 @@ export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | n
         <AlertFeed predictions={predictions} isLoading={!raceDetail} />
       </div>
 
-      {/* Manual Paste Section (Plan C) */}
-      <div className="bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
+      {/* Manual Paste Section (Plan C) - Hidden per user request */}
+      <div className="hidden bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
         <h3 className="text-sm font-semibold text-slate-200 mb-2 flex items-center gap-2">
           <span>📋 手動匯入大戶資料 (方案 C)</span>
         </h3>
