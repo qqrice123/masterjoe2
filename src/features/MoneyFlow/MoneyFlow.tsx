@@ -116,12 +116,12 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
   )
 
   const evPicks = [...predictions]
-    .filter(p => p.combatStatus === "GO" && !String(p.runnerNumber).startsWith("R"))
-    .sort((a, b) => b.expectedValue - a.expectedValue)
-    .slice(0, 2)
-    .map(p => p.runnerNumber)
+      .filter(p => p.combatStatus === "GO" && !String(p.runnerNumber).startsWith("R"))
+      .sort((a, b) => b.expectedValue - a.expectedValue)
+      .slice(0, 2)
+      .map(p => String(p.runnerNumber))
 
-  const data = predictions
+    const data = predictions
     .filter(p => p.estWinInvestment != null && !String(p.runnerNumber).startsWith("R"))
     .sort((a, b) => (b.estWinInvestment ?? 0) - (a.estWinInvestment ?? 0))
     .map(p => ({
@@ -132,8 +132,8 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
       qpl:          Math.round((p.estQPLInvestment ?? 0) / 1000),
       qinWinRatio:  p.estWinInvestment && p.estWinInvestment > 0
                       ? (p.estQINInvestment ?? 0) / p.estWinInvestment : 0,
-      isSystemTopPick: p.runnerNumber === systemTopPick,
-      isEvPick:        evPicks.includes(p.runnerNumber),
+      isSystemTopPick: String(p.runnerNumber) === String(systemTopPick),
+      isEvPick:        evPicks.includes(String(p.runnerNumber)),
       moneyAlert:      p.moneyAlert,
       isGoldenWeightRD: p.isGoldenWeightRD ?? false,
       isOd1: String(p.runnerNumber) === String(oddsStructure?.od1Number),
@@ -167,55 +167,54 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
   }
 
   const renderCustomBarLabel = (props: any) => {
-    const { x, y, width, index } = props
-    const item = data[index]
-    if (!item) return null
+      const { x, y, width, index } = props
+      const item = data[index]
+      if (!item) return null
 
-    let showMarker = false
-    let markerColor = ""
-    let textColor   = "#0f1117"
+      const markers = []
+      if (item.moneyAlert === "large_bet") markers.push({ color: "#ef4444", text: "#ffffff" })
+      if (item.isSystemTopPick) markers.push({ color: "#7dd3fc", text: "#0f1117" })
+      if (item.isEvPick) markers.push({ color: "#f472b6", text: "#0f1117" })
 
-    if (item.moneyAlert === "large_bet") {
-      showMarker = true; markerColor = "#ef4444"; textColor = "#ffffff"
-    } else if (item.isSystemTopPick) {
-      showMarker = true; markerColor = "#7dd3fc"
-    } else if (item.isEvPick) {
-      showMarker = true; markerColor = "#f472b6"
-    }
+      const hotLabel =
+        item.isOd1 ? "①" : item.isOd2 ? "②" : item.isOd3 ? "③" : item.isOd4 ? "④" : ""
 
-    const hotLabel =
-      item.isOd1 ? "①" : item.isOd2 ? "②" : item.isOd3 ? "③" : item.isOd4 ? "④" : ""
+      let currentY = y - 6
 
-    return (
-      <g>
-        {hotLabel && (
-          <text
-            x={x + width / 2} y={y - (showMarker ? 28 : 10)}
-            textAnchor="middle" fill="#fff005" fontSize={10} fontWeight="bold"
-          >
-            {hotLabel}
-          </text>
-        )}
-        {showMarker && (
-          <g transform={`translate(${x + width / 2}, ${y - 12})`}>
-            <circle cx={0} cy={0} r={10} fill={markerColor} stroke="#1e293b" strokeWidth={1} />
-            <text x={0} y={4} textAnchor="middle" fill={textColor} fontSize={10} fontWeight="bold">
-              {item.runnerNumber}
+      return (
+        <g>
+          {markers.map((m, i) => {
+            const cy = currentY - 8
+            currentY -= 18
+            return (
+              <g key={i} transform={`translate(${x + width / 2}, ${cy})`}>
+                <circle cx={0} cy={0} r={8} fill={m.color} stroke="#1e293b" strokeWidth={1} />
+                <text x={0} y={3} textAnchor="middle" fill={m.text} fontSize={9} fontWeight="bold">
+                  {item.runnerNumber}
+                </text>
+              </g>
+            )
+          })}
+          {item.isGoldenWeightRD && (
+            <text
+              x={x + width / 2} y={currentY - 2}
+              textAnchor="middle" fill="#34d399" fontSize={11}
+            >
+              ✨
             </text>
-          </g>
-        )}
-        {/* ✨ WeightRD golden signal on bar */}
-        {item.isGoldenWeightRD && (
-          <text
-            x={x + width / 2} y={y - (showMarker ? 44 : 26)}
-            textAnchor="middle" fill="#34d399" fontSize={10}
-          >
-            ✨
-          </text>
-        )}
-      </g>
-    )
-  }
+          )}
+          {item.isGoldenWeightRD && (currentY -= 14)}
+          {hotLabel && (
+            <text
+              x={x + width / 2} y={currentY - 2}
+              textAnchor="middle" fill="#fff005" fontSize={11} fontWeight="bold"
+            >
+              {hotLabel}
+            </text>
+          )}
+        </g>
+      )
+    }
 
   return (
     <ResponsiveContainer width="100%" height={270}>
@@ -502,6 +501,9 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
           </span>
           <span className="flex items-center">
             <span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1" />AI首選
+          </span>
+          <span className="flex items-center">
+            <span className="inline-block w-3 h-3 bg-[#f472b6] rounded-full mr-1" />EV首選
           </span>
           <span className="flex items-center">
             <span className="text-emerald-400 font-bold mr-1">✨</span>WeightRD命中(3–9x)
