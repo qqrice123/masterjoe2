@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useRoute } from "wouter"
 import { useMemo } from "react"
 import { api, RaceDetail, Prediction } from "../../services/api"
+import { aiEngine }                     from "../../services/aiLearning"
 import { getWeightRDTooltip }           from "../../services/weightRD.utils"
 import { MoneyFlowChart }    from "../MoneyFlow/MoneyFlowChart"
 import { PaceDrawMap }       from "../AnalyticsDashboard/PaceDrawMap"
@@ -74,6 +75,11 @@ export function RaceView() {
 
   const preds = race?.predictions ?? []
 
+  const aiTopPick = useMemo(
+    () => aiEngine.getTopPick(preds, race?.pools ? { winPool: race.pools.WIN, qinPool: race.pools.QIN, qplPool: race.pools.QPL } as any : undefined),
+    [preds, race]
+  )
+
   const systemTopPick = useMemo(() => {
     let bestRunner: string | number | null = null
     let maxRatio = 0
@@ -141,24 +147,31 @@ export function RaceView() {
             <tbody>
               {preds.map((p: Prediction, i: number) => {
                 const isSystemTopPick = String(p.runnerNumber) === String(systemTopPick)
+                const isAiTopPick     = String(p.runnerNumber) === String(aiTopPick)
                 // FIX: prev3min used; no (p as any)
                 const refOdds = p.oddsHistory?.prev3min ?? p.oddsHistory?.min30
                 return (
                   <tr key={p.runnerNumber}
                     className={`border-t border-[#2a3352] hover:bg-[#1c2333]/60 transition-colors ${i===0?"bg-blue-500/5":""}`}>
                     <td className="px-3 py-2.5 relative">
-                      {isSystemTopPick && (
-                        <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#7dd3fc]" title="聰明錢(QIN/QPL異常)" />
-                      )}
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-bold ${isSystemTopPick ? "ml-2" : ""}`}>{p.runnerNumber}</span>
+                      <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5">
+                        {isSystemTopPick && <span className="w-1.5 h-1.5 rounded-full bg-[#7dd3fc]" title="聰明錢(QIN/QPL異常)" />}
+                        {isAiTopPick && <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" title="AI綜合首選" />}
+                      </div>
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-bold ${(isSystemTopPick || isAiTopPick) ? "ml-3" : ""}`}>{p.runnerNumber}</span>
                     </td>
                     <td className="px-3 py-2.5 max-w-[160px]">
-                      <div className="font-medium text-slate-200 truncate flex items-center gap-1">
+                      <div className="font-medium text-slate-200 truncate flex flex-wrap items-center gap-1">
                         {p.runnerName}
                         <WeightRDBadge p={p} />
                         {isSystemTopPick && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#7dd3fc]/20 text-[#7dd3fc] border border-[#7dd3fc]/30 whitespace-nowrap" title="聰明錢繞過獨贏直接入連贏">
                             聰明錢
+                          </span>
+                        )}
+                        {isAiTopPick && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30 whitespace-nowrap" title="AI綜合評估首選">
+                            AI首選
                           </span>
                         )}
                       </div>

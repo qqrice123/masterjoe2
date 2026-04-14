@@ -110,6 +110,11 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
   predictions:   Prediction[]
   oddsStructure?: OddsStructure
 }) {
+  const aiTopPick = useMemo(
+    () => aiEngine.getTopPick(predictions, oddsStructure),
+    [predictions, oddsStructure]
+  )
+
   const systemTopPick = useMemo(() => {
     let bestRunner: string | number | null = null
     let maxRatio = 0
@@ -143,6 +148,7 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
       qinWinRatio:  p.estWinInvestment && p.estWinInvestment > 0
                       ? (p.estQINInvestment ?? 0) / p.estWinInvestment : 0,
       isSystemTopPick: String(p.runnerNumber) === String(systemTopPick),
+      isAiTopPick:     String(p.runnerNumber) === String(aiTopPick),
       moneyAlert:      p.moneyAlert,
       isGoldenWeightRD: p.isGoldenWeightRD ?? false,
       isOd1: String(p.runnerNumber) === String(oddsStructure?.od1Number),
@@ -183,6 +189,7 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
       const markers = []
       if (item.moneyAlert === "large_bet") markers.push({ color: "#ef4444", text: "#ffffff" })
       if (item.isSystemTopPick) markers.push({ color: "#7dd3fc", text: "#0f1117" })
+      if (item.isAiTopPick) markers.push({ color: "#22c55e", text: "#ffffff" })
 
       const hotLabel =
         item.isOd1 ? "①" : item.isOd2 ? "②" : item.isOd3 ? "③" : item.isOd4 ? "④" : ""
@@ -509,6 +516,9 @@ export function MoneyFlow({ raceDetail }: { raceDetail: RaceDetail | null }) {
           </span>
           <span className="flex items-center">
             <span className="inline-block w-3 h-3 bg-[#7dd3fc] rounded-full mr-1" />聰明錢(QIN/QPL異常)
+          </span>
+          <span className="flex items-center">
+            <span className="inline-block w-3 h-3 bg-[#22c55e] rounded-full mr-1" />AI綜合首選
           </span>
           <span className="flex items-center">
             <span className="text-emerald-400 font-bold mr-1">✨</span>WeightRD命中(3–9x)
