@@ -6,8 +6,7 @@
  * 2. 寫入 Neon odds_snapshots 表（已容錯重複快照）
  *
  */
-import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions"
-import { schedule } from "@netlify/functions"
+import type { Config } from "@netlify/functions"
 import { neon } from "@neondatabase/serverless"
 import { HorseRacingAPI, HKJCClient } from "hkjc-api"
 import { horseOddsQuery, horsePoolQuery } from "hkjc-api/dist/query/horseRacingQuery.js"
@@ -60,16 +59,14 @@ function getMtpBucket(mtp: number): number {
 }
 
 // ---- 主 handler ----
-const pollOddsLogic = async (
-  event: HandlerEvent,
-  _context: HandlerContext
-) => {
+export default async (req: Request) => {
+  const url = new URL(req.url)
   // 允許使用特定參數來繞過 MTP 限制，方便手動觸發測試
-  const forceMtp = event.queryStringParameters?.force === 'true'
+  const forceMtp = url.searchParams.get('force') === 'true'
 
   if (!process.env.DATABASE_URL) {
     console.error("[poll-odds] DATABASE_URL 未設定")
-    return { statusCode: 500, body: "DATABASE_URL missing" }
+    return new Response("DATABASE_URL missing", { status: 500 })
   }
 
   const horseAPI = new HorseRacingAPI()
@@ -81,7 +78,10 @@ const pollOddsLogic = async (
     const meetings = await horseAPI.getAllRaces()
     if (!meetings || meetings.length === 0) {
       console.log("[poll-odds] 無活躍賽事日")
-      return { statusCode: 200, body: JSON.stringify({ inserted: 0, message: "無活躍賽事日" }) }
+      return new Response(JSON.stringify({ inserted: 0, message: "無活躍賽事日" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
     }
 
     for (const meeting of meetings) {
@@ -360,19 +360,23 @@ const pollOddsLogic = async (
       console.error("[poll-odds] 清理舊資料失敗", cleanErr)
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
+    return new Response(
+      JSON.stringify({
         inserted: totalInserted,
         errors: errors.length > 0 ? errors : undefined,
         timestamp: new Date().toISOString(),
       }),
-    }
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    )
   } catch (e: any) {
     console.error("[poll-odds] 差錢錯誤:", e)
-    return { statusCode: 500, body: JSON.stringify({ error: e?.message || "unknown error" }) }
+    return new Response(
+      JSON.stringify({ error: e?.message || "unknown error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    )
   }
 }
 
-// 改由 Netlify 內建的 Scheduled Functions 每 5 分鐘自動執行
-export const handler = schedule("*/5 * * * *", pollOddsLogic)
+export const config: Config = {
+  schedule: "*/5 * * * *"
+}
