@@ -2,7 +2,7 @@
 // 資金追蹤模組 — WinPoolChart + QIN熱力圖 + 大戶警報 + 彩池總覽
 // FIX: removed all (p as any); WeightRD fields now typed via api.types.ts
 
-import { memo, useMemo } from "react"
+import { memo, useMemo, useState } from "react"
 import {
   BarChart, Bar, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
@@ -14,6 +14,7 @@ import { OddsStructure, Prediction, RaceDetail } from "../../services/api"
 import { AlertFeed }            from "./AlertFeed"
 import { getWeightRDTooltip }   from "../../services/weightRD.utils"
 import { SmartMoneyBoard }      from "./SmartMoneyBoard"
+import { parsePastedLargeBets, mergeLargeBetsIntoPredictions } from "./utils/largeBets"
 import { SmartMoneyHistory }    from "./SmartMoneyHistory"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -420,8 +421,17 @@ const OddsTable = memo(function OddsTable({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | null, maxRaces?: number }) {
-  const predictions  = raceDetail?.predictions ?? []
-  const pools        = raceDetail?.pools
+  const [pastedText, setPastedText] = useState("")
+
+  const predictions = useMemo(() => {
+    const preds = raceDetail?.predictions ?? []
+    if (!pastedText) return preds
+    
+    const txns = parsePastedLargeBets(pastedText)
+    return mergeLargeBetsIntoPredictions(preds, txns)
+  }, [raceDetail, pastedText])
+
+  const pools = raceDetail?.pools
   const oddsStruct   = raceDetail?.oddsStructure
   const isPreRace    = raceDetail?.isPreRace ?? true
 
@@ -630,6 +640,32 @@ export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | n
           <span className="text-xs text-slate-500">過去 20 分鐘</span>
         </div>
         <AlertFeed predictions={predictions} isLoading={!raceDetail} />
+      </div>
+
+      {/* Manual Paste Section (Plan C) */}
+      <div className="bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
+        <h3 className="text-sm font-semibold text-slate-200 mb-2 flex items-center gap-2">
+          <span>📋 手動匯入大戶資料 (方案 C)</span>
+        </h3>
+        <p className="text-xs text-slate-500 mb-3">
+          直接貼上包含 4 組平行欄位的資料 (WIN交易 / WIN交易 / QIN交易 / QPL交易)，將即時更新上方圖表。
+        </p>
+        <textarea
+          className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs font-mono text-slate-300 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+          placeholder="[WIN交易] [WIN交易] [QIN交易] [QPL交易]&#10;時間 馬號 賠率 金額 Y 時間 馬號 賠率 金額 Y 時間 組合 賠率 金額 Y 時間 組合 賠率 金額 Y"
+          value={pastedText}
+          onChange={(e) => setPastedText(e.target.value)}
+        />
+        {pastedText && (
+          <div className="mt-2 flex justify-end">
+            <button 
+              onClick={() => setPastedText("")}
+              className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors"
+            >
+              清除資料
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Full odds table */}
