@@ -66,7 +66,10 @@ export default async (req: Request) => {
 
   if (!process.env.DATABASE_URL) {
     console.error("[poll-odds] DATABASE_URL 未設定")
-    return new Response("DATABASE_URL missing", { status: 500 })
+    return new Response(JSON.stringify({ error: "DATABASE_URL missing" }), { 
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    })
   }
 
   const horseAPI = new HorseRacingAPI()
@@ -96,7 +99,10 @@ export default async (req: Request) => {
         const mtp = minutesToPost(race.postTime)
         if (isNaN(mtp)) continue
         // 為了確保可以抓取所有賽事（即使是未來或剛結束的），當 forceMtp 為 true 時放寬限制
-        if (!forceMtp && (mtp < -10 || mtp > 120)) continue
+        if (!forceMtp && (mtp < -15 || mtp > 120)) {
+          // console.log(`[poll-odds] 跳過 ${venue} R${raceNo} (MTP: ${mtp})`)
+          continue
+        }
 
         const mtpBucket = getMtpBucket(mtp)
         const safeMtp = Math.max(-32768, Math.min(32767, mtp)) // smallint range
@@ -200,6 +206,7 @@ export default async (req: Request) => {
               prevOddsMap[row.runner_number] = parseFloat(row.odds)
             }
           })
+          // console.log(`[poll-odds] ${venue} R${raceNo} 找到 ${Object.keys(prevOddsMap).length} 筆歷史賠率`)
         } catch (e) {
           console.error("取得歷史賠率失敗", e)
         }
@@ -356,6 +363,7 @@ export default async (req: Request) => {
     try {
       await sql`DELETE FROM alerts WHERE date < CURRENT_DATE - INTERVAL '1 day'`
       await sql`DELETE FROM odds_snapshots WHERE date < CURRENT_DATE - INTERVAL '2 days'`
+      // console.log("[poll-odds] 成功清理舊資料")
     } catch (cleanErr) {
       console.error("[poll-odds] 清理舊資料失敗", cleanErr)
     }
