@@ -28,8 +28,8 @@ export interface Prediction {
   combatAdvice?: string;
   combatStatus?: "GO" | "SHADOW" | "CAUTION" | "AVOID";
   oddsHistory?: {
-    overnight: number | string; min30: number | string;
-    min15: number | string;     current: number | string;
+    overnight: number | string | null; min30: number | string | null;
+    min15: number | string | null; min3?: number | string | null; current: number | string | null;
   };
   // ── NEW: 彩池投注額估算 ──
   estWinInvestment?: number;

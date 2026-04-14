@@ -255,10 +255,11 @@ const OddsTable = memo(function OddsTable({ predictions, totalWin }: { predictio
             const isLarge = alert === "large_bet"
             const isDrift = alert === "drifting"
             const oddsNum = parseFloat(String(p.winOdds))
+            const refOdds = p.oddsHistory.min3 ?? p.oddsHistory.min15
             const oddsChanged =
-              p.oddsHistory.min15 &&
+              refOdds &&
               !isNaN(oddsNum) &&
-              Number(p.oddsHistory.min15) !== oddsNum
+              Number(refOdds) !== oddsNum
 
             return (
               <tr
@@ -296,9 +297,9 @@ const OddsTable = memo(function OddsTable({ predictions, totalWin }: { predictio
                   {p.winOdds}
                   {oddsChanged && (
                     <span className={`ml-1 text-[10px] ${
-                      Number(p.oddsHistory.min15) > oddsNum ? "text-emerald-400" : "text-red-400"
+                      Number(refOdds) > oddsNum ? "text-emerald-400" : "text-red-400"
                     }`}>
-                      {Number(p.oddsHistory.min15) > oddsNum ? "↓" : "↑"}
+                      {Number(refOdds) > oddsNum ? "↓" : "↑"}
                     </span>
                   )}
                 </td>

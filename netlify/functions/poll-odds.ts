@@ -53,7 +53,8 @@ function getMtpBucket(mtp: number): number {
   if (mtp > 30) return 60
   if (mtp > 15) return 30
   if (mtp > 5)  return 15
-  if (mtp > 0)  return 5
+  if (mtp > 3)  return 5
+  if (mtp > 0)  return 3
   return 0
 }
 

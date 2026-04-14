@@ -263,7 +263,7 @@ function EVMatrixTable({ predictions, isPreRace, oddsStructure }: { predictions:
                   </span>
                   {p.winOdds !== "—" && (
                     <span className="text-xs text-slate-500 ml-1">
-                      → 夜{p.modelOdds}
+                      → {p.oddsHistory?.min3 ? `3分${p.oddsHistory.min3}` : `夜${p.modelOdds}`}
                     </span>
                   )}
                 </td>
