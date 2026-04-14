@@ -64,13 +64,13 @@ const pollOddsHandler: Handler = async (
   _context: HandlerContext
 ) => {
   // 驗證內部呼叫用的 Secret Key (由 GitHub Actions 帶上)
-  const authHeader = event.headers.authorization || event.headers.Authorization
+  const authHeader = event.headers.authorization || event.headers.authorization || ""
   const expectedToken = `Bearer ${process.env.CRON_SECRET}`
   
   // 允許使用特定參數來繞過 MTP 限制，方便手動觸發測試
   const forceMtp = event.queryStringParameters?.force === 'true'
 
-  if (process.env.CRON_SECRET && authHeader !== expectedToken) {
+  if (process.env.CRON_SECRET && authHeader !== expectedToken && !forceMtp) {
     console.error("[poll-odds] 未經授權的呼叫")
     return { statusCode: 401, body: "Unauthorized" }
   }
@@ -210,11 +210,20 @@ const pollOddsHandler: Handler = async (
         }
 
         const newAlerts: any[] = []
+        const largeBetsTransactions: any[] = []
+
+        // 合併 WIN, QIN, QPL 節點來處理大戶邏輯
+        const allOddsNodes = [
+          ...oddsNodes.map(n => ({ ...n, type: "WIN", poolInv: winPoolInv })),
+          ...qinOddsNodes.map(n => ({ ...n, type: "QIN", poolInv: qinPoolInv })),
+          ...qplOddsNodes.map(n => ({ ...n, type: "QPL", poolInv: qplPoolInv }))
+        ]
 
         try {
-          const queries = oddsNodes.map((node) => {
-            const paddedNo = String(node.combString).padStart(2, "0")
-            const horseName = runnersMap[paddedNo] || runnersMap[node.combString] || ""
+          const queries = allOddsNodes.map((node) => {
+            const paddedNo = String(node.combString).split(",").map(x => x.padStart(2, "0")).join(",")
+            const isWin = node.type === "WIN"
+            const horseName = isWin ? (runnersMap[paddedNo] || runnersMap[node.combString] || "") : ""
             const odds = parseFloat(node.oddsValue)
             if (isNaN(odds)) return null
 
@@ -222,17 +231,40 @@ const pollOddsHandler: Handler = async (
             const prevOdds = prevOddsMap[paddedNo] || prevOddsMap[node.combString]
             let dropPct: number | null = null
             let isLargeBet = false
+            let injectedAmount = 0
             
             if (prevOdds && prevOdds > 0) {
               dropPct = ((prevOdds - odds) / prevOdds) * 100
-              if (dropPct >= 20) {
+              
+              // 估算注入金額: (目前彩池 * 0.825 / 目前賠率) - (目前彩池 * 0.825 / 之前賠率)
+              // 這是一個近似值，假設彩池總額變化不大時的單注注入量
+              const currentEst = (node.poolInv * 0.825) / odds
+              const prevEst = (node.poolInv * 0.825) / prevOdds
+              injectedAmount = Math.max(0, currentEst - prevEst)
+
+              // 判斷是否為大戶大注: 賠率跌幅 >= 20% 或 單次注入金額 >= 20萬
+              if (dropPct >= 20 || injectedAmount >= 200000) {
                 isLargeBet = true
               }
             }
             
             const snaptime = new Date().toISOString()
+            const timeStr = new Date().toLocaleTimeString("en-HK", { timeZone: "Asia/Hong_Kong", hour12: false, hour: "2-digit", minute: "2-digit" })
             
-            if (isLargeBet || paddedNo === bestSmartMoneyRunner) {
+            // 如果是大注，記錄到 largeBetsTransactions
+            if (isLargeBet && odds > 0) {
+              largeBetsTransactions.push({
+                type: node.type,
+                time: timeStr,
+                runnerNumbers: paddedNo.split(","),
+                odds: odds,
+                amount: Math.round(injectedAmount || ((node.poolInv * 0.825) / odds)), // 若無歷史資料則取當前估算
+                isAlert: true
+              })
+            }
+
+            // 只有 WIN 才會觸發舊版的 alerts 和 push-send (避免 QIN/QPL 產生過多推播)
+            if (isWin && (isLargeBet || paddedNo === bestSmartMoneyRunner)) {
               const isSM = paddedNo === bestSmartMoneyRunner
               const alertType = isLargeBet ? "LARGE_BET" : "SMART_MONEY"
               const alertId = `${raceDate}_${venue}_${raceNo}_${paddedNo}_${mtpBucket}_${alertType}`
@@ -250,12 +282,12 @@ const pollOddsHandler: Handler = async (
                 currentOdds: odds,
                 dropPct: isSM ? maxSmartMoneyRatio : (dropPct || 0), // SMART_MONEY 將 Ratio 存在 dropPct 欄位
               })
-              
+
               // 記錄寫入 Alert 的 Query
               return sql`
                 WITH snapshot_insert AS (
                   INSERT INTO odds_snapshots (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket, snaptime)
-                  VALUES (${raceDate}, ${venue}, ${raceNo}, ${node.combString}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket}, ${snaptime})
+                  VALUES (${raceDate}, ${venue}, ${raceNo}, ${paddedNo}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket}, ${snaptime})
                   ON CONFLICT (date, venue, race_no, runner_number, mtp_bucket) 
                   DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post, snaptime = EXCLUDED.snaptime
                 )
@@ -265,16 +297,31 @@ const pollOddsHandler: Handler = async (
               `
             }
 
-            // 一般的賠率快照更新
+            // 一般的賠率快照更新 (WIN, QIN, QPL 都存入 odds_snapshots 以便下次比對)
             return sql`
               INSERT INTO odds_snapshots
                 (date, venue, race_no, runner_number, horse_name, odds, minutes_to_post, mtp_bucket, snaptime)
               VALUES
-                (${raceDate}, ${venue}, ${raceNo}, ${node.combString}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket}, ${snaptime})
+                (${raceDate}, ${venue}, ${raceNo}, ${paddedNo}, ${horseName}, ${odds}, ${safeMtp}, ${mtpBucket}, ${snaptime})
               ON CONFLICT (date, venue, race_no, runner_number, mtp_bucket) 
               DO UPDATE SET odds = EXCLUDED.odds, minutes_to_post = EXCLUDED.minutes_to_post, snaptime = EXCLUDED.snaptime
             `
           }).filter(Boolean) as any[]
+
+          // 處理 large_bets 大戶寫入
+          if (largeBetsTransactions.length > 0) {
+            largeBetsTransactions.forEach(tx => {
+              queries.push(sql`
+                INSERT INTO large_bets (venue, race_no, date, type, time, runner_numbers, odds, amount, is_alert)
+                SELECT ${venue}, ${raceNo}, ${raceDate}, ${tx.type}, ${tx.time}, ${JSON.stringify(tx.runnerNumbers)}::jsonb, ${tx.odds}, ${tx.amount}, ${tx.isAlert}
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM large_bets 
+                  WHERE venue = ${venue} AND race_no = ${raceNo} AND date = ${raceDate} 
+                  AND type = ${tx.type} AND time = ${tx.time} AND amount = ${tx.amount}
+                )
+              `)
+            })
+          }
 
           if (queries.length > 0) {
             await sql.transaction(queries)

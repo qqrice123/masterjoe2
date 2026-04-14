@@ -99,6 +99,16 @@ export const api = {
     }
     return res.json();
   },
+  getLargeBets: async (venue: string, raceNo: number): Promise<any[]> => {
+    try {
+      const res = await fetch(`/api/large-bets?venue=${venue}&raceNo=${raceNo}`);
+      if (!res.ok) return [];
+      return res.json();
+    } catch (e) {
+      console.error("Failed to fetch large bets:", e);
+      return [];
+    }
+  },
   getAlerts: async (limit = 30, severity?: string, date?: string, type?: string, venue?: string, raceNo?: number) => {
     let q = `?limit=${limit}`
     if (severity) q += `&severity=${severity}`

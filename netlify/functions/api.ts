@@ -416,6 +416,109 @@ export const handler: Handler = async (event) => {
     }
 
     // ── /alerts ────────────────────────────────────────────────────────────
+    if (pathname === "/large-bets") {
+      if (!process.env.DATABASE_URL) {
+        return json(500, { error: "DATABASE_URL not configured" })
+      }
+      const sql = neon(process.env.DATABASE_URL)
+
+      if (event.httpMethod === "POST") {
+        try {
+          const body = JSON.parse(event.body || "{}")
+          const { venue, raceNo, date, transactions } = body
+
+          if (!venue || !raceNo || !date || !Array.isArray(transactions)) {
+            return json(400, { error: "Missing required fields or invalid transactions array" })
+          }
+
+          // Ensure table exists (this can be moved to a migration script later)
+          await sql`
+            CREATE TABLE IF NOT EXISTS large_bets (
+              id SERIAL PRIMARY KEY,
+              venue VARCHAR(10) NOT NULL,
+              race_no INT NOT NULL,
+              date DATE NOT NULL,
+              type VARCHAR(10) NOT NULL,
+              time VARCHAR(20) NOT NULL,
+              runner_numbers JSONB NOT NULL,
+              odds NUMERIC NOT NULL,
+              amount NUMERIC NOT NULL,
+              is_alert BOOLEAN NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+          `
+
+          // Deduplicate based on time + type + runner_numbers + amount to avoid duplicates
+          const inserted = []
+          for (const tx of transactions) {
+            const result = await sql`
+              INSERT INTO large_bets (venue, race_no, date, type, time, runner_numbers, odds, amount, is_alert)
+              SELECT ${venue}, ${raceNo}, ${date}, ${tx.type}, ${tx.time}, ${JSON.stringify(tx.runnerNumbers)}::jsonb, ${tx.odds}, ${tx.amount}, ${tx.isAlert}
+              WHERE NOT EXISTS (
+                SELECT 1 FROM large_bets 
+                WHERE venue = ${venue} AND race_no = ${raceNo} AND date = ${date} 
+                AND type = ${tx.type} AND time = ${tx.time} AND amount = ${tx.amount}
+              )
+              RETURNING *
+            `
+            if (result.length > 0) inserted.push(result[0])
+          }
+
+          return json(200, { success: true, inserted: inserted.length })
+        } catch (err: any) {
+          console.error("POST Large Bets Error:", err)
+          return json(500, { error: err.message })
+        }
+      }
+
+      if (event.httpMethod === "GET") {
+        try {
+          const urlParams = new URLSearchParams(event.queryStringParameters as any)
+          const venue = urlParams.get("venue")
+          const raceNo = urlParams.get("raceNo")
+          const date = urlParams.get("date") // Optional
+
+          if (!venue || !raceNo) {
+            return json(400, { error: "Missing venue or raceNo" })
+          }
+
+          let query
+          if (date) {
+            query = sql`
+              SELECT type, time, runner_numbers as "runnerNumbers", odds, amount, is_alert as "isAlert"
+              FROM large_bets 
+              WHERE venue = ${venue} AND race_no = ${raceNo} AND date = ${date}
+              ORDER BY time DESC
+            `
+          } else {
+            // If no date provided, fetch the most recent data for this venue and raceNo (assumes today or upcoming)
+            query = sql`
+              SELECT type, time, runner_numbers as "runnerNumbers", odds, amount, is_alert as "isAlert"
+              FROM large_bets 
+              WHERE venue = ${venue} AND race_no = ${raceNo}
+              ORDER BY date DESC, time DESC
+              LIMIT 500
+            `
+          }
+
+          const results = await query
+          const parsedResults = results.map(row => ({
+            ...row,
+            odds: parseFloat(row.odds),
+            amount: parseFloat(row.amount)
+          }))
+          return json(200, parsedResults)
+        } catch (err: any) {
+          console.error("GET Large Bets Error:", err)
+          // If table doesn't exist yet, just return empty array
+          if (err.message && err.message.includes('relation "large_bets" does not exist')) {
+            return json(200, [])
+          }
+          return json(500, { error: err.message })
+        }
+      }
+    }
+
     if (pathname === "/alerts") {
       try {
         const urlParams = new URLSearchParams(event.queryStringParameters as any)

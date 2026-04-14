@@ -3,6 +3,7 @@
 // FIX: removed all (p as any); WeightRD fields now typed via api.types.ts
 
 import { memo, useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   BarChart, Bar, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
@@ -10,7 +11,7 @@ import {
 import type { XAxisProps } from "recharts"
 import { OddsStructureBanner } from "../AnalyticsDashboard/OddsStructureBanner"
 import { aiEngine }             from "../../services/aiLearning"
-import { OddsStructure, Prediction, RaceDetail } from "../../services/api"
+import { api, OddsStructure, Prediction, RaceDetail } from "../../services/api"
 import { AlertFeed }            from "./AlertFeed"
 import { getWeightRDTooltip }   from "../../services/weightRD.utils"
 import { SmartMoneyBoard }      from "./SmartMoneyBoard"
@@ -423,13 +424,27 @@ const OddsTable = memo(function OddsTable({
 export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | null, maxRaces?: number }) {
   const [pastedText, setPastedText] = useState("")
 
+  // Plan A: REST 輪詢 (每 15 秒)
+  const { data: polledTxns } = useQuery({
+    queryKey: ['large-bets', raceDetail?.venueCode, raceDetail?.raceNumber],
+    queryFn: () => api.getLargeBets(raceDetail!.venueCode, raceDetail!.raceNumber),
+    enabled: !!raceDetail?.venueCode && !!raceDetail?.raceNumber,
+    refetchInterval: 15_000,
+  })
+
   const predictions = useMemo(() => {
     const preds = raceDetail?.predictions ?? []
-    if (!pastedText) return preds
     
-    const txns = parsePastedLargeBets(pastedText)
-    return mergeLargeBetsIntoPredictions(preds, txns)
-  }, [raceDetail, pastedText])
+    // 合併 Plan A (Polled) 與 Plan C (Pasted) 資料
+    let combinedTxns = polledTxns ?? []
+    if (pastedText) {
+      combinedTxns = [...combinedTxns, ...parsePastedLargeBets(pastedText)]
+    }
+    
+    if (combinedTxns.length === 0) return preds
+    
+    return mergeLargeBetsIntoPredictions(preds, combinedTxns)
+  }, [raceDetail, pastedText, polledTxns])
 
   const pools = raceDetail?.pools
   const oddsStruct   = raceDetail?.oddsStructure
