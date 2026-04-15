@@ -141,6 +141,7 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
     .sort((a, b) => (b.estWinInvestment ?? 0) - (a.estWinInvestment ?? 0))
     .map(p => ({
       runnerNumber: p.runnerNumber,
+      runnerName:   p.runnerName,
       winOdds:      p.winOdds,
       win:          Math.round((p.estWinInvestment ?? 0) / 1000),
       qin:          Math.round((p.estQINInvestment ?? 0) / 1000),
@@ -254,6 +255,13 @@ const InvestmentRankingChart = memo(function InvestmentRankingChart({
             border: "1px solid #2a3352",
             borderRadius: 8,
             fontSize: 12,
+          }}
+          labelFormatter={(label, payload) => {
+            if (payload && payload.length > 0) {
+              const horseData = payload[0].payload;
+              return `${label} ${horseData.runnerName}`;
+            }
+            return label;
           }}
           formatter={(value: any, name: string) =>
             [`HK$${value}K`, name === "win" ? "WIN" : name === "qin" ? "QIN" : "QPL"]
