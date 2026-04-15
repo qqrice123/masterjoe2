@@ -645,48 +645,6 @@ export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | n
         )}
       </div>
 
-      {/* Alert Feed */}
-      <div className="bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-            🚨 大戶警報
-            {alertCount > 0 && (
-              <span className="bg-red-700 text-red-100 text-xs px-2 py-0.5 rounded-full animate-pulse">
-                {alertCount}
-              </span>
-            )}
-          </h3>
-          <span className="text-xs text-slate-500">過去 20 分鐘</span>
-        </div>
-        <AlertFeed predictions={predictions} isLoading={!raceDetail} />
-      </div>
-
-      {/* Manual Paste Section (Plan C) - Hidden per user request */}
-      <div className="hidden bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
-        <h3 className="text-sm font-semibold text-slate-200 mb-2 flex items-center gap-2">
-          <span>📋 手動匯入大戶資料 (方案 C)</span>
-        </h3>
-        <p className="text-xs text-slate-500 mb-3">
-          直接貼上包含 4 組平行欄位的資料 (WIN交易 / WIN交易 / QIN交易 / QPL交易)，將即時更新上方圖表。
-        </p>
-        <textarea
-          className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs font-mono text-slate-300 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
-          placeholder="[WIN交易] [WIN交易] [QIN交易] [QPL交易]&#10;時間 馬號 賠率 金額 Y 時間 馬號 賠率 金額 Y 時間 組合 賠率 金額 Y 時間 組合 賠率 金額 Y"
-          value={pastedText}
-          onChange={(e) => setPastedText(e.target.value)}
-        />
-        {pastedText && (
-          <div className="mt-2 flex justify-end">
-            <button 
-              onClick={() => setPastedText("")}
-              className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors"
-            >
-              清除資料
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* Full odds table */}
       <div className="bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
         <div className="flex items-center justify-between mb-3">
@@ -701,6 +659,22 @@ export function MoneyFlow({ raceDetail, maxRaces }: { raceDetail: RaceDetail | n
           predictions={predictions}
           totalWin={pools?.WIN ?? 28_000_000}
         />
+      </div>
+
+      {/* Alert Feed */}
+      <div className="bg-[#0d1421] rounded-2xl p-4 border border-[#2a3352]">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+            🚨 大戶警報
+            {alertCount > 0 && (
+              <span className="bg-red-700 text-red-100 text-xs px-2 py-0.5 rounded-full animate-pulse">
+                {alertCount}
+              </span>
+            )}
+          </h3>
+          <span className="text-xs text-slate-500">過去 20 分鐘</span>
+        </div>
+        <AlertFeed predictions={predictions} isLoading={!raceDetail} />
       </div>
 
       {isPreRace && (
