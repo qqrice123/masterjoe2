@@ -54,7 +54,7 @@ function CombatBadge({ status }: { status: string }) {
 
 function AlertBadge({ alert }: { alert?: string }) {
   if (!alert || alert === "steady") return null
-  if (alert === "largebet")
+  if (alert === "large_bet")
     return <span className="text-xs text-emerald-400 font-bold animate-pulse">🟢 大戶</span>
   return <span className="text-xs text-red-400">🔴 撤資</span>
 }
