@@ -108,10 +108,10 @@ export default function App() {
     : null
 
   return (
-    <div className="min-h-dvh bg-[#0f1117] text-slate-200 font-sans">
+    <div className="min-h-dvh bg-[#0f1117] text-slate-200 font-sans pb-[env(safe-area-inset-bottom)]">
 
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-[#0f1117]/95 backdrop-blur border-b border-slate-800">
+      <header className="sticky top-0 z-50 bg-[#0f1117]/95 backdrop-blur border-b border-slate-800 pt-[env(safe-area-inset-top)]">
         <div className="max-w-[1400px] mx-auto px-2 sm:px-4 h-14 flex items-center gap-1.5 sm:gap-3">
 
           {/* Logo */}
@@ -386,7 +386,7 @@ export default function App() {
       </div>
 
       {/* ── Mobile Bottom Tab Bar ────────────────────────────────────── */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-[#0f1117]/95 backdrop-blur border-t border-slate-800">
+      <nav className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-[#0f1117]/95 backdrop-blur border-t border-slate-800 pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-4 h-16">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
