@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { AnalyticsDashboard } from "@/features/AnalyticsDashboard"
 import { MoneyFlow } from "@/features/MoneyFlow/MoneyFlow"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
-import { BarChart2, Activity, Lightbulb, History, Moon, Sun, RefreshCw, ChevronDown } from "lucide-react"
+import { BarChart2, Activity, Lightbulb, History, Moon, Sun, RefreshCw, ChevronDown, Target } from "lucide-react"
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -42,10 +42,11 @@ async function fetchRaceDetail(venueCode: string, raceNo: number) {
 // ── Tab config ─────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: "analysis",        label: "分析",   labelFull: "EV 分析",   icon: BarChart2 },
-  { id: "moneyflow",       label: "資金",   labelFull: "資金追蹤",  icon: Activity  },
-  { id: "recommendations", label: "建議",   labelFull: "AI 建議",   icon: Lightbulb },
-  { id: "history",         label: "歷史",   labelFull: "賽事歷史",  icon: History   },
+  { id: "analysis",        label: "分析",   labelFull: "EV 分析",     icon: BarChart2 },
+  { id: "moneyflow",       label: "資金",   labelFull: "資金追蹤",    icon: Activity  },
+  { id: "recommendations", label: "建議",   labelFull: "AI 建議",     icon: Lightbulb },
+  { id: "picks",           label: "4選",    labelFull: "4選預測參考", icon: Target    },
+  { id: "history",         label: "歷史",   labelFull: "賽事歷史",    icon: History   },
 ] as const
 
 type TabId = (typeof TABS)[number]["id"]
@@ -351,6 +352,12 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === "picks" && (
+          <div className="flex items-center justify-center py-20 text-slate-600 text-sm">
+            4選預測參考內容（開發中...）
+          </div>
+        )}
+
         {activeTab === "history" && (
           <div className="flex items-center justify-center py-20 text-slate-600 text-sm">
             歷史記錄（需要 Neon 數據積累後啟用）
@@ -387,7 +394,7 @@ export default function App() {
 
       {/* ── Mobile Bottom Tab Bar ────────────────────────────────────── */}
       <nav className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-[#0f1117]/95 backdrop-blur border-t border-slate-800 pb-[env(safe-area-inset-bottom)]">
-        <div className="grid grid-cols-4 h-16">
+        <div className="grid grid-cols-5 h-16">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
