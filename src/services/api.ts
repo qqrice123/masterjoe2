@@ -39,6 +39,11 @@ export interface Prediction {
   moneyAlert?: "large_bet" | "drifting" | "qin_overflow" | "shortening" | "steady";
   finalPosition?: number | null | string; // 賽果名次
   isTheoretical?: boolean;
+  // ── NEW: 四維度整合分析框架所需欄位 ──
+  prevWeight?: number;
+  prevHorseWeight?: number;
+  prevRating?: number;
+  runningStyle?: string;
 }
 
 export interface OddsStructure {
