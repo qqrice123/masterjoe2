@@ -19,16 +19,23 @@ export function PicksReference({ raceDetail }: Props) {
   const ranked = [...validRunners].sort((a, b) => b.score - a.score);
   const top4 = ranked.slice(0, 4);
 
-  // 第四維度：與場均負磅比較
-  const avgWeight = validRunners.length > 0
-    ? validRunners.reduce((s, r) => s + (r.weight ?? 0), 0) / validRunners.length
-    : 120;
+  if (top4.length === 0) {
+    return (
+      <div className="bg-[#161b27] rounded-xl border border-[#2a3352] p-8 text-center text-slate-500 text-sm">
+        賽駒資料不足，無法產生預測參考
+      </div>
+    );
+  }
+
+  // 第四維度：與基準負磅比較 (系統預設為 125 磅)
+  const BASE_WEIGHT = 125;
 
   let gMod = 1.05; // Default: Good (好地)
   if (going) {
-    if (going.includes("快") || going.toLowerCase().includes("firm")) gMod = 1.00;
-    else if (going.includes("黏") || going.toLowerCase().includes("yielding")) gMod = 1.15;
-    else if (going.includes("軟") || going.toLowerCase().includes("soft")) gMod = 1.30;
+    if (going.includes("好至快")) gMod = 1.00;
+    else if (going.includes("快") || going.toLowerCase().includes("firm")) gMod = 1.00;
+    else if (going.includes("好至黏") || going.includes("黏") || going.toLowerCase().includes("yielding")) gMod = 1.15;
+    else if (going.includes("軟") || going.includes("爛") || going.toLowerCase().includes("soft")) gMod = 1.30;
     else if (going.includes("好") || going.toLowerCase().includes("good")) gMod = 1.05;
   }
 
@@ -84,9 +91,10 @@ export function PicksReference({ raceDetail }: Props) {
                 : "—";
 
               // 第四維度：時間差 (與場均負磅比較)
-              const deltaW = avgWeight - (p.weight ?? avgWeight);
+              const deltaW = BASE_WEIGHT - (p.weight ?? BASE_WEIGHT);
               const c = getDistanceCoeff(distance);
-              const timeDiffVal = (deltaW / 2) * c * gMod;
+              const sMod = p.runningStyle === "front" ? 0.95 : p.runningStyle === "back" ? 1.05 : 1.00;
+              const timeDiffVal = (deltaW / 2) * c * gMod * sMod;
               const timeDiff = timeDiffVal > 0
                 ? `+${timeDiffVal.toFixed(3)}秒 ✅`
                 : timeDiffVal < 0
