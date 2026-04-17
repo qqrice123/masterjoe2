@@ -27,6 +27,19 @@ export const handler: Handler = async (event, context) => {
   const sql = neon(dbUrl);
 
   try {
+    // 確保資料表存在
+    await sql`
+      CREATE TABLE IF NOT EXISTS ai_weights (
+        race_type VARCHAR(20) PRIMARY KEY,
+        base_prob_weight NUMERIC NOT NULL,
+        ev_weight NUMERIC NOT NULL,
+        ratio_weight NUMERIC NOT NULL,
+        large_bet_weight NUMERIC NOT NULL,
+        learn_count INT DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
     // GET: 取得所有最新的權重
     if (event.httpMethod === "GET") {
       const rows = await sql`SELECT * FROM ai_weights`;

@@ -42,6 +42,14 @@ class AILearningEngine {
   private saveWeights() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.weights));
+      // 同步到後端資料庫
+      Object.entries(this.weights).forEach(([raceType, weights]) => {
+        fetch("/api/weights", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ raceType, weights, learnCount: 1 })
+        }).catch(err => console.error("Failed to sync AI weights to Neon DB", err));
+      });
     } catch (e) {
       console.error("Failed to save AI weights", e);
     }
