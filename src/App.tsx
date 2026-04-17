@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { AnalyticsDashboard } from "@/features/AnalyticsDashboard"
 import { MoneyFlow } from "@/features/MoneyFlow/MoneyFlow"
+import { PicksReference } from "@/features/Picks/PicksReference"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
 import { BarChart2, Activity, Lightbulb, History, Moon, Sun, RefreshCw, ChevronDown, Target } from "lucide-react"
 
@@ -353,8 +354,14 @@ export default function App() {
         )}
 
         {activeTab === "picks" && (
-          <div className="flex items-center justify-center py-20 text-slate-600 text-sm">
-            4選預測參考內容（開發中...）
+          <div className="space-y-4">
+            {raceDetail ? (
+              <PicksReference raceDetail={raceDetail} />
+            ) : (
+              <div className="flex items-center justify-center py-20 text-slate-600 text-sm">
+                選擇賽事以查看4選預測參考
+              </div>
+            )}
           </div>
         )}
 
