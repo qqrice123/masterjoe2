@@ -340,10 +340,13 @@ const OddsTable = memo(function OddsTable({
               ? (p.estWinInvestment / (totalWin * POOL_DEDUCTION)) * 100
               : 0
 
+            const hasNoOdds = p.winOdds === "—" || p.winOdds == null
+
             return (
               <tr key={p.runnerNumber}
                 className={`border-b border-slate-800/50 transition-colors hover:bg-slate-800/30
-                  ${i === 0 ? "bg-slate-800/20" : ""}`}
+                  ${i === 0 ? "bg-slate-800/20" : ""}
+                  ${hasNoOdds ? "opacity-40" : ""}`}
               >
                 {/* Horse number + name */}
                 <td className="px-3 py-3">

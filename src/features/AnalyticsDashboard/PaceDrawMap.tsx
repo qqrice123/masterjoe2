@@ -36,16 +36,20 @@ export function PaceDrawMap({ predictions, totalRunners }: Props) {
     rear:       predictions.filter(p => p.combatAdvice?.includes("後追")),
   };
 
-  const HorseTag = ({ p, highlight }: { p: Prediction; highlight?: boolean; key?: string | number }) => (
+  const HorseTag = ({ p, highlight }: { p: Prediction; highlight?: boolean; key?: string | number }) => {
+    const hasNoOdds = p.winOdds === "—" || p.winOdds == null;
+    return (
     <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs transition-all
-      ${highlight ? "border-emerald-500 bg-emerald-500/15 text-emerald-300" : "border-[#2a3352] bg-[#1c2333] text-slate-300"}`}>
+      ${highlight ? "border-emerald-500 bg-emerald-500/15 text-emerald-300" : "border-[#2a3352] bg-[#1c2333] text-slate-300"}
+      ${hasNoOdds ? "opacity-40" : ""}`}>
       <span className="font-bold text-slate-400">{p.draw || p.runnerNumber}</span>
       <span className="truncate max-w-[60px]">{p.runnerName.split("").slice(0,4).join("")}</span>
       <span className={`${highlight ? "text-emerald-400" : "text-slate-500"}`}>
         {p.expectedValue > 0.1 ? "🟢" : p.expectedValue > 0 ? "🟡" : "🔴"}
       </span>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="bg-[#161b27] rounded-xl border border-[#2a3352] p-4">
@@ -89,8 +93,9 @@ export function PaceDrawMap({ predictions, totalRunners }: Props) {
               .map(p => {
                 const group = getDrawGroup(p.draw || p.runnerNumber, totalRunners);
                 const isEdge = group === "inner" && p.expectedValue > 0.1;
+                const hasNoOdds = p.winOdds === "—" || p.winOdds == null;
                 return (
-                  <div key={p.runnerNumber} className="flex items-center gap-2">
+                  <div key={p.runnerNumber} className={`flex items-center gap-2 ${hasNoOdds ? "opacity-40" : ""}`}>
                     <span className="text-slate-500 text-xs w-4">{p.draw || p.runnerNumber}</span>
                     <div className={`h-5 rounded transition-all flex items-center px-2
                       ${group === "inner" ? "bg-blue-500/20" : group === "outer" ? "bg-purple-500/20" : "bg-slate-700/50"}`}

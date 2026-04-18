@@ -12,8 +12,10 @@ const VERDICT_ICONS: Record<string, string> = {
 function RankCard({ rank, horse, label, color }: {
   rank: string; horse: Prediction; label: string; color: string; key?: string | number
 }) {
+  const hasNoOdds = horse.winOdds === "—" || horse.winOdds == null;
+
   return (
-    <div className={`bg-[#1c2333] rounded-xl p-4 border ${color} space-y-2`}>
+    <div className={`bg-[#1c2333] rounded-xl p-4 border ${color} space-y-2 ${hasNoOdds ? "opacity-40" : ""}`}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold text-slate-400">{rank}</span>
         <span className="text-xs">{VERDICT_ICONS[horse.combatStatus ?? ""] ?? "⚪"}</span>
@@ -96,15 +98,18 @@ export function Recommendations({ race }: Props) {
         <div>
           <div className="text-xs text-slate-400 mb-2 font-medium">🚫 避開馬匹（過熱 / 負 EV）</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {risks.map(p => (
-              <div key={p.runnerNumber} className="bg-red-500/5 border border-red-500/20 rounded-lg p-3 text-xs">
+            {risks.map(p => {
+              const hasNoOdds = p.winOdds === "—" || p.winOdds == null;
+              return (
+              <div key={p.runnerNumber} className={`bg-red-500/5 border border-red-500/20 rounded-lg p-3 text-xs ${hasNoOdds ? "opacity-40" : ""}`}>
                 <span className="text-white font-bold">{p.runnerNumber}號 {p.runnerName}</span>
                 <span className="ml-2 text-red-400">EV {p.expectedValue?.toFixed(3) ?? "—"}</span>
                 {p.riskFactors?.map(r => (
                   <span key={r} className="ml-2 text-slate-500">{r}</span>
                 ))}
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

@@ -245,12 +245,13 @@ function EVMatrixTable({
             const isAiTopPick     = String(p.runnerNumber) === String(aiTopPick)
             // FIX: use prev3min for fast drift detection
             const refOdds         = p.oddsHistory?.prev3min ?? p.oddsHistory?.min15
+            const hasNoOdds       = p.winOdds === "—" || p.winOdds == null
 
             return (
               <tr key={p.runnerNumber}
                 className={`border-b border-slate-800/50 transition-colors hover:bg-slate-800/30
                   ${i === 0 ? "bg-slate-800/20" : ""}
-                  ${isReserve ? "opacity-40" : ""}
+                  ${(isReserve || hasNoOdds) ? "opacity-40" : ""}
                   ${p.combatStatus === "GO"      ? "border-l-2 border-l-emerald-500" : ""}
                   ${p.combatStatus === "CAUTION" ? "border-l-2 border-l-amber-500"   : ""}`}
               >

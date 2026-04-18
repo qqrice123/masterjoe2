@@ -116,9 +116,11 @@ export function PicksReference({ raceDetail }: Props) {
               if (p.riskFactors?.length) cons.push(...p.riskFactors);
 
               const prosCons = [...pros, ...cons].join(" ") || "—";
+              
+              const hasNoOdds = p.winOdds === "—" || p.winOdds == null;
 
               return (
-                <tr key={p.runnerNumber} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                <tr key={p.runnerNumber} className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors ${hasNoOdds ? "opacity-40" : ""}`}>
                   <td className="px-3 py-3 font-mono font-bold text-blue-400 whitespace-nowrap">#{p.runnerNumber}</td>
                   <td className="px-3 py-3 font-medium text-white whitespace-nowrap">{p.runnerName}</td>
                   <td className="px-3 py-3 whitespace-nowrap">{currentRating}</td>

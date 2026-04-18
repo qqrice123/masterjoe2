@@ -146,9 +146,11 @@ export function RaceView() {
                 const isAiTopPick     = String(p.runnerNumber) === String(aiTopPick)
                 // FIX: prev3min used; no (p as any)
                 const refOdds = p.oddsHistory?.prev3min ?? p.oddsHistory?.min30
+                const hasNoOdds = p.winOdds === "—" || p.winOdds == null
+
                 return (
                   <tr key={p.runnerNumber}
-                    className={`border-t border-[#2a3352] hover:bg-[#1c2333]/60 transition-colors ${i===0?"bg-blue-500/5":""}`}>
+                    className={`border-t border-[#2a3352] hover:bg-[#1c2333]/60 transition-colors ${i===0?"bg-blue-500/5":""} ${hasNoOdds ? "opacity-40" : ""}`}>
                     <td className="px-3 py-2.5 relative">
                       <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5">
                         {isSystemTopPick && <span className="w-1.5 h-1.5 rounded-full bg-[#7dd3fc]" title="聰明錢(QIN/QPL異常)" />}
