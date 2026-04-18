@@ -309,23 +309,23 @@ const OddsTable = memo(function OddsTable({
     .filter(p => !String(p.runnerNumber).startsWith("R"))
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
+    <div className="overflow-x-auto rounded-xl border border-slate-700/50">
+      <table className="w-full text-sm min-w-[400px]">
         <thead>
-          <tr className="text-slate-500 border-b border-[#2a3352]">
-            <th className="text-left py-2 pr-2 font-normal">馬號</th>
-            <th className="text-right py-2 px-2 font-normal">獨贏</th>
-            <th className="text-right py-2 px-2 font-normal">位置</th>
-            <th className="text-right py-2 px-2 font-normal">EV</th>
-            <th className="text-right py-2 px-2 font-normal">WIN估算</th>
-            <th className="text-right py-2 px-2 font-normal">市佔%</th>
-            <th className="text-right py-2 px-2 font-normal">QIN估算</th>
-            <th className="text-right py-2 px-2 font-normal">QPL估算</th>
-            <th className="text-right py-2 pl-2 font-normal">狀態</th>
+          <tr className="bg-slate-900/80 border-b border-slate-700/50 text-slate-400 text-left">
+            <th className="px-3 py-2.5 font-medium whitespace-nowrap">馬號</th>
+            <th className="px-3 py-2.5 font-medium whitespace-nowrap text-right">獨贏</th>
+            <th className="px-3 py-2.5 font-medium whitespace-nowrap text-right">位置</th>
+            <th className="px-3 py-2.5 font-medium whitespace-nowrap text-right">EV</th>
+            <th className="px-3 py-2.5 font-medium whitespace-nowrap text-right">WIN估算</th>
+            <th className="px-3 py-2.5 font-medium whitespace-nowrap text-right">市佔%</th>
+            <th className="px-3 py-2.5 font-medium whitespace-nowrap text-right">QIN估算</th>
+            <th className="px-3 py-2.5 font-medium whitespace-nowrap text-right">QPL估算</th>
+            <th className="px-3 py-2.5 font-medium whitespace-nowrap text-right">狀態</th>
           </tr>
         </thead>
-        <tbody>
-          {rows.map(p => {
+        <tbody className="text-slate-300">
+          {rows.map((p, i) => {
             const alert     = p.moneyAlert
             const isLarge   = alert === "large_bet"
             const isDrift   = alert === "drifting"
@@ -335,15 +335,18 @@ const OddsTable = memo(function OddsTable({
             const oddsChanged =
               refOdds != null && !isNaN(oddsNum) && Number(refOdds) !== oddsNum
 
+            // Calculate Market Share % based on WIN est
+            const marketShare = (p.estWinInvestment && totalWin > 0)
+              ? (p.estWinInvestment / (totalWin * POOL_DEDUCTION)) * 100
+              : 0
+
             return (
-              <tr
-                key={p.runnerNumber}
-                className={`border-b border-[#1a2035] transition-colors
-                  ${isLarge ? "bg-emerald-950/20" : isDrift ? "bg-red-950/10" : ""}
-                  hover:bg-[#1c2333]`}
+              <tr key={p.runnerNumber}
+                className={`border-b border-slate-800/50 transition-colors hover:bg-slate-800/30
+                  ${i === 0 ? "bg-slate-800/20" : ""}`}
               >
-                {/* Horse name + WeightRD badges */}
-                <td className="py-2 pr-2">
+                {/* Horse number + name */}
+                <td className="px-3 py-3">
                   <div className="flex items-center gap-1.5">
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center
                       text-xs font-bold
@@ -355,13 +358,12 @@ const OddsTable = memo(function OddsTable({
                     <span className="text-slate-300 truncate max-w-[80px]">
                       {p.runnerName}
                     </span>
-                    {/* FIX: typed WeightRD badges — no (p as any) */}
                     <WeightRDBadges p={p} />
                   </div>
                 </td>
 
                 {/* Odds with movement indicator */}
-                <td className={`text-right py-2 px-2 font-mono font-bold
+                <td className={`text-right px-3 py-3 font-mono font-bold whitespace-nowrap
                   ${isLarge ? "text-emerald-400" : isDrift ? "text-red-400" : "text-slate-100"}`}>
                   {p.winOdds}
                   {oddsChanged && (
@@ -372,48 +374,41 @@ const OddsTable = memo(function OddsTable({
                   )}
                 </td>
 
-                <td className="text-right py-2 px-2 font-mono text-[#05b0ff]">
+                <td className="text-right px-3 py-3 font-mono text-[#05b0ff] whitespace-nowrap">
                   {p.placeOdds === "—" ? "—" : p.placeOdds}
                 </td>
 
-                <td className={`text-right py-2 px-2 font-mono font-bold
-                  ${p.expectedValue > 0.1 ? "text-emerald-400"
-                  : p.expectedValue > 0   ? "text-amber-400"
-                  : "text-red-400"}`}>
-                  {p.expectedValue > 0 ? "+" : ""}
-                  {(p.expectedValue * 100).toFixed(0)}%
+                {/* Expected Value */}
+                <td className="text-right px-3 py-3 whitespace-nowrap">
+                  <span className={`text-xs font-bold
+                    ${p.expectedValue > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {p.expectedValue > 0 ? "+" : ""}{(p.expectedValue * 100).toFixed(0)}%
+                  </span>
                 </td>
 
-                <td className="text-right py-2 px-2 font-mono text-[#fff005]">
+                {/* Pool Est */}
+                <td className="text-right px-3 py-3 font-mono text-[#fff005] whitespace-nowrap">
                   {p.estWinInvestment ? `$${fmt(p.estWinInvestment)}` : "—"}
                 </td>
 
-                {/* FIX: pool share divides by gross pool (before deduction) */}
-                <td className="text-right py-2 px-2 text-slate-400">
-                  {p.estWinInvestment
-                    ? pct(p.estWinInvestment, totalWin * POOL_DEDUCTION)
-                    : "—"}
+                {/* Market Share % */}
+                <td className="text-right px-3 py-3 font-mono text-slate-400 whitespace-nowrap">
+                  {marketShare > 0 ? `${marketShare.toFixed(1)}%` : "—"}
                 </td>
 
-                <td className="text-right py-2 px-2 font-mono text-[#ff9205]">
+                <td className="text-right px-3 py-3 font-mono text-[#ff9205] whitespace-nowrap">
                   {p.estQINInvestment ? `$${fmt(p.estQINInvestment)}` : "—"}
                 </td>
-                <td className="text-right py-2 px-2 font-mono text-[#f953f7]">
+
+                <td className="text-right px-3 py-3 font-mono text-[#f953f7] whitespace-nowrap">
                   {p.estQPLInvestment ? `$${fmt(p.estQPLInvestment)}` : "—"}
                 </td>
 
-                <td className="text-right py-2 pl-2">
-                  {isLarge ? (
-                    <span className="text-[10px] bg-emerald-800/60 text-emerald-300 px-1.5 py-0.5 rounded">
-                      大戶 🟢
-                    </span>
-                  ) : isDrift ? (
-                    <span className="text-[10px] bg-red-800/50 text-red-300 px-1.5 py-0.5 rounded">
-                      撤資 🔴
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-slate-600">穩定</span>
-                  )}
+                {/* Alert Icon */}
+                <td className="text-right px-3 py-3 whitespace-nowrap">
+                  {isLarge && <span className="text-emerald-400 text-xs font-bold animate-pulse">🟢</span>}
+                  {isDrift && <span className="text-red-400 text-xs">🔴</span>}
+                  {!isLarge && !isDrift && <span className="text-slate-600 text-xs">—</span>}
                 </td>
               </tr>
             )

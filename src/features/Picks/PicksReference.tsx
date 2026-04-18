@@ -46,23 +46,23 @@ export function PicksReference({ raceDetail }: Props) {
         結合步速預測與檔位群組走勢做臨場微調分析上仗與今仗評分與負磅變化 ({going || "未知場地"})
       </p>
 
-      <div className="min-w-[1000px]">
-        <table className="w-full text-left border-collapse text-xs">
+      <div className="overflow-x-auto mt-4 -mx-4 sm:mx-0">
+        <table className="w-full text-left border-collapse text-sm min-w-[1000px]">
           <thead>
-            <tr className="border-b border-[#2a3352] text-slate-400">
-              <th className="py-2 pr-2 font-medium">馬號</th>
-              <th className="py-2 pr-2 font-medium">馬匹名稱</th>
-              <th className="py-2 pr-2 font-medium">今仗評分</th>
-              <th className="py-2 pr-2 font-medium">評分變化</th>
-              <th className="py-2 pr-2 font-medium">今仗負磅</th>
-              <th className="py-2 pr-2 font-medium">負磅變化</th>
-              <th className="py-2 pr-2 font-medium">今仗體重</th>
-              <th className="py-2 pr-2 font-medium">體重變化</th>
-              <th className="py-2 pr-2 font-medium">累積相對負擔</th>
-              <th className="py-2 pr-2 font-medium">時間差</th>
-              <th className="py-2 pr-2 font-medium min-w-[100px]">近3仗賽績</th>
-              <th className="py-2 pr-2 font-medium min-w-[180px]">優劣分析</th>
-              <th className="py-2 pr-2 font-medium">評級名次(順序)</th>
+            <tr className="border-b border-slate-800">
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">馬號</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">馬匹名稱</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">今仗評分</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">評分變化</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">今仗負磅</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">負磅變化</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">今仗體重</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">體重變化</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">累積相對負擔</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">時間差</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap min-w-[100px]">近3仗賽績</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap min-w-[180px]">優劣分析</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 whitespace-nowrap">評級名次(順序)</th>
             </tr>
           </thead>
           <tbody className="text-slate-300">
@@ -118,20 +118,20 @@ export function PicksReference({ raceDetail }: Props) {
               const prosCons = [...pros, ...cons].join(" ") || "—";
 
               return (
-                <tr key={p.runnerNumber} className="border-b border-[#2a3352]/50 hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3 pr-2 font-bold text-blue-400">#{p.runnerNumber}</td>
-                  <td className="py-3 pr-2 font-medium text-white">{p.runnerName}</td>
-                  <td className="py-3 pr-2">{currentRating}</td>
-                  <td className={`py-3 pr-2 ${ratingChange.startsWith('+') ? 'text-red-400' : ratingChange.startsWith('-') ? 'text-emerald-400' : 'text-slate-500'}`}>{ratingChange}</td>
-                  <td className="py-3 pr-2">{currentWeight}</td>
-                  <td className={`py-3 pr-2 ${weightChange.startsWith('+') ? 'text-red-400' : weightChange.startsWith('-') ? 'text-emerald-400' : 'text-slate-500'}`}>{weightChange}</td>
-                  <td className="py-3 pr-2">{currentHorseWeight}</td>
-                  <td className={`py-3 pr-2 ${horseWeightChange.startsWith('+') ? 'text-emerald-400' : horseWeightChange.startsWith('-') ? 'text-red-400' : 'text-slate-500'}`}>{horseWeightChange}</td>
-                  <td className="py-3 pr-2 text-amber-400/80 font-mono">{cumulativeBurden}</td>
-                  <td className={`py-3 pr-2 font-mono ${timeDiffVal > 0 ? "text-emerald-400" : timeDiffVal < 0 ? "text-red-400" : "text-slate-500"}`}>{timeDiff}</td>
-                  <td className="py-3 pr-2 font-mono text-[10px]">{p.last3Form || "—"}</td>
-                  <td className="py-3 pr-2 text-[11px] text-slate-400 leading-tight">{prosCons}</td>
-                  <td className="py-3 pr-2 font-bold">
+                <tr key={p.runnerNumber} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                  <td className="px-3 py-3 font-mono font-bold text-blue-400 whitespace-nowrap">#{p.runnerNumber}</td>
+                  <td className="px-3 py-3 font-medium text-white whitespace-nowrap">{p.runnerName}</td>
+                  <td className="px-3 py-3 whitespace-nowrap">{currentRating}</td>
+                  <td className={`px-3 py-3 whitespace-nowrap ${ratingChange.startsWith('+') ? 'text-red-400' : ratingChange.startsWith('-') ? 'text-emerald-400' : 'text-slate-500'}`}>{ratingChange}</td>
+                  <td className="px-3 py-3 whitespace-nowrap">{currentWeight}</td>
+                  <td className={`px-3 py-3 whitespace-nowrap ${weightChange.startsWith('+') ? 'text-red-400' : weightChange.startsWith('-') ? 'text-emerald-400' : 'text-slate-500'}`}>{weightChange}</td>
+                  <td className="px-3 py-3 whitespace-nowrap">{currentHorseWeight}</td>
+                  <td className={`px-3 py-3 whitespace-nowrap ${horseWeightChange.startsWith('+') ? 'text-emerald-400' : horseWeightChange.startsWith('-') ? 'text-red-400' : 'text-slate-500'}`}>{horseWeightChange}</td>
+                  <td className="px-3 py-3 text-amber-400/80 font-mono whitespace-nowrap">{cumulativeBurden}</td>
+                  <td className={`px-3 py-3 font-mono whitespace-nowrap ${timeDiffVal > 0 ? "text-emerald-400" : timeDiffVal < 0 ? "text-red-400" : "text-slate-500"}`}>{timeDiff}</td>
+                  <td className="px-3 py-3 font-mono text-[10px] whitespace-nowrap">{p.last3Form || "—"}</td>
+                  <td className="px-3 py-3 text-[11px] text-slate-400 leading-tight min-w-[180px] whitespace-nowrap">{prosCons}</td>
+                  <td className="px-3 py-3 font-bold whitespace-nowrap">
                     {i === 0 ? "🥇 第1名" : i === 1 ? "🥈 第2名" : i === 2 ? "🥉 第3名" : "第4名"}
                   </td>
                 </tr>
