@@ -1145,27 +1145,40 @@ export const handler: Handler = async (event) => {
       })
 
       // ── Softmax win probability ────────────────────────────────────────
-      const expScores = predictions.map((p: any) => Math.exp(p.score / 20))
+      const expScores = predictions.map((p: any) => {
+        if (p.winOdds === "—" || isNaN(parseFloat(String(p.winOdds)))) return 0
+        return Math.exp(p.score / 20)
+      })
       const totalExp = expScores.reduce((a: number, b: number) => a + b, 0)
 
       predictions.forEach((p: any, idx: number) => {
+        if (p.winOdds === "—" || isNaN(parseFloat(String(p.winOdds))) || totalExp === 0) {
+          p.winProbModel = -1
+          p.winProbability = 0
+          p.modelOdds = 9999
+          p.diffProb = 0
+          p.expectedValue = 0
+          p.kellyFraction = 0
+          p.isStrongStar = false
+          p.combatStatus = "AVOID"
+          p.combatAdvice = "無賠率信息"
+          p.investmentLabel = "NONE"
+          return
+        }
+
         p.winProbModel = parseFloat((expScores[idx] / totalExp).toFixed(4))
         p.winProbability = Math.round(p.winProbModel * 100)
         p.modelOdds = parseFloat((1 / p.winProbModel - 1).toFixed(1))
         p.diffProb = parseFloat((p.winProbModel - p.marketImpliedProb).toFixed(4))
 
-        if (p.winOdds !== "—") {
-          const winOddsNum = parseFloat(p.winOdds as string)
-          p.expectedValue = parseFloat((p.winProbModel * winOddsNum - 1).toFixed(2))
-          if (winOddsNum > 1) {
-            const kelly = p.expectedValue / (winOddsNum - 1)
-            p.kellyFraction = parseFloat((Math.max(0, kelly) * 100).toFixed(1))
-          }
-          // 強勢星星指標 (Strong Star): 系統勝率換算賠率 < 10 且 即時賠率 < 10 (落在 od1 區域)
-          p.isStrongStar = p.modelOdds < 10 && winOddsNum < 10
-        } else {
-          p.isStrongStar = false
+        const winOddsNum = parseFloat(p.winOdds as string)
+        p.expectedValue = parseFloat((p.winProbModel * winOddsNum - 1).toFixed(2))
+        if (winOddsNum > 1) {
+          const kelly = p.expectedValue / (winOddsNum - 1)
+          p.kellyFraction = parseFloat((Math.max(0, kelly) * 100).toFixed(1))
         }
+        // 強勢星星指標 (Strong Star): 系統勝率換算賠率 < 10 且 即時賠率 < 10 (落在 od1 區域)
+        p.isStrongStar = p.modelOdds < 10 && winOddsNum < 10
 
         // ── Combat advice ──────────────────────────────────────────────
         const ev = p.expectedValue
@@ -1253,7 +1266,12 @@ export const handler: Handler = async (event) => {
       })
 
       let topPick = validPredictions.length > 0 ? validPredictions[0] : predictions[0]
-      let summaryTextBase = `AI 四維度分析（按模型賠率排名）：首選 #${topPick.runnerNumber} ${topPick.runnerName}（模型賠率 ${topPick.modelOdds}）。`
+      let summaryTextBase = ""
+      if (topPick.modelOdds === 9999) {
+        summaryTextBase = `AI 四維度分析：目前尚無賠率信息，無法進行預測。`
+      } else {
+        summaryTextBase = `AI 四維度分析（按模型賠率排名）：首選 #${topPick.runnerNumber} ${topPick.runnerName}（模型賠率 ${topPick.modelOdds}）。`
+      }
 
       // ══════════════════════════════════════════════════════════════════════
       // 混亂局 AI 首選邏輯：從半冷馬(od2: 10~19.9)中，找 QIN/WIN 柱體比例最高者
